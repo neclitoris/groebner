@@ -1,0 +1,47 @@
+name:                groebner
+version:             0.1.0.0
+github:              "neclitoris/groebner"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/groebner#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- vector >= 0.12 && < 1
+- singletons >= 2.7 && < 3
+- prettyprinter >= 1.7 && < 2
+- text >= 1.2 && < 2
+- transformers >= 0.5 && < 1
+- tasty >= 1.4 && < 2
+- tasty-hedgehog >= 1 && < 2
+- hedgehog >= 1 && < 2
+- QuickCheck >= 2.14 && < 3
+- tasty-quickcheck >= 0.10 && < 1
+
+library:
+  source-dirs: src
+
+tests:
+  groebner-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - groebner
+
+default-extensions:
+- ImportQualifiedPost
+- BlockArguments
+- ViewPatterns
