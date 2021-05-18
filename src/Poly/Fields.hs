@@ -7,6 +7,7 @@
 module Poly.Fields
   ( Q
   , GF
+  , Prime
   , module Data.Ratio
   ) where
 
