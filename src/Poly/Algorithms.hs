@@ -5,6 +5,7 @@ module Poly.Algorithms
   , reduceBySet
   , sPolynomial
   , groebnerBasis
+  , autoReduce
   ) where
 
 import Control.Monad.Trans.Cont (evalCont, reset, shift)
@@ -64,3 +65,10 @@ groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
         0 -> go have new
         s -> go (s : have) (new ++ sPolys have s)
     go have []      = have
+
+autoReduce :: PolynomialConstraint (Polynomial f v o)
+           => [Polynomial f v o] -> [Polynomial f v o]
+autoReduce basis = [ f | (before, f:after) <- breaks basis
+                       , reduceBySet (before ++ after) f /= 0]
+  where
+    breaks l = zip (inits l) (tails l)
