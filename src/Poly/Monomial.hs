@@ -50,6 +50,7 @@ pattern MonomialVec :: f -> VS.Vector Int -> Monomial f v o
 pattern MonomialVec coef powers  = MonomialImpl (MonomialData coef powers)
 
 
+viewMono :: Monomial f v o -> (f, [Int])
 viewMono (MonomialImpl (MonomialData coef powers)) = (coef, VS.toList powers)
 
 pattern Monomial :: f -> [Int] -> Monomial f v o
@@ -108,11 +109,11 @@ divide (MonomialVec c1 p1) (MonomialVec c2 p2) = do
 prettySign :: forall f v o ann . (SingI v, Show f, Fractional f, Eq f)
            => Monomial f v o -> (Ordering, PP.Doc ann)
 prettySign m =
-  (sign, c <> PP.encloseSep PP.emptyDoc PP.emptyDoc (PP.pretty "*") vars)
+  (sign, c <> L.foldl' (<>) PP.emptyDoc (L.intersperse (PP.pretty "*") vars))
     where
       vars = catMaybes $ zipWith zipF varNames $ powers m
 
-      zipF x 0 = Nothing
+      zipF _ 0 = Nothing
       zipF x 1 = Just $ PP.pretty x
       zipF x p = Just $ mconcat [PP.pretty x, PP.pretty "^", PP.pretty p]
 
@@ -134,7 +135,7 @@ instance (SingI v, Show f, Fractional f, Eq f)
 
 instance PP.Pretty (Monomial f v o) => Show (Monomial f v o) where
   showsPrec _ =
-    PP.renderShowS . PP.layoutPretty PP.defaultLayoutOptions . PP.pretty
+    PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
 instance (Eq f, MonomialOrder o) => Ord (Monomial f v o) where
   compare (MonomialImpl l) (MonomialImpl r) = monoCompare (order :: o) l r

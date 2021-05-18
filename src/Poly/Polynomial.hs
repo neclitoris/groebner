@@ -13,7 +13,7 @@ module Poly.Polynomial
   , withVariables
   , leading
   , IsPolynomial(..)
-  , PolynomialConstraint(..)
+  , PolynomialConstraint
   ) where
 
 import Data.Kind
@@ -42,11 +42,13 @@ class IsPolynomial f v o t where
 
 instance PolynomialConstraint (Polynomial f v o)
     => IsPolynomial f v o f where
-  toPolynomial = Polynomial . (:[]) . constant
+  toPolynomial 0 = 0
+  toPolynomial n = Polynomial $ (:[]) $ constant n
 
 instance PolynomialConstraint (Polynomial f v o)
     => IsPolynomial f v o (Monomial f v o) where
-  toPolynomial = Polynomial . (:[])
+  toPolynomial (coef -> 0) = 0
+  toPolynomial m           = Polynomial [m]
 
 instance PolynomialConstraint (Polynomial f v o)
     => IsPolynomial f v o (Polynomial f v o) where
@@ -68,22 +70,21 @@ withVariables v f =
   withSomeSing v \(s :: Sing v) -> withSingI s $ f $ variables @v
 
 leading :: Polynomial f v o -> Maybe (Monomial f v o)
-leading (pData -> (x:xs)) = Just x
-leading _                 = Nothing
+leading (pData -> (x:_)) = Just x
+leading _                = Nothing
 
 
 instance (PolynomialConstraint (Polynomial f v o), Show f)
     => PP.Pretty (Polynomial f v o) where
   pretty (pData -> []) = PP.pretty "0"
   pretty (map prettySign . pData -> ((s,x):xs)) =
-    L.foldl'
-      (\rem (s, x) -> rem <+> PP.pretty (if s == LT then "-" else "+") <+> x)
-      ((if s == LT then PP.pretty "-" else PP.emptyDoc) <> x)
-      xs
+    PP.fillSep $
+      PP.pretty (if s == LT then "-" else "") <> x
+      : map (\(s, x) -> PP.pretty (if s == LT then "-" else "+") <+> x) xs
 
 instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
-    PP.renderShowS . PP.layoutPretty PP.defaultLayoutOptions . PP.pretty
+    PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
 instance (SingI vars, Eq field, MonomialOrder order, Fractional field)
     => Num (Polynomial field vars order) where
@@ -100,7 +101,7 @@ instance (SingI vars, Eq field, MonomialOrder order, Fractional field)
                   s           -> s : impl xs ys
 
   (pData -> l) * (pData -> r) =
-    sum [ Polynomial $ filter ((/= 0) .coef) $ map (mulM y) l | y <- r ]
+    sum [ Polynomial [ m | ml <- l, let m = mulM ml mr, coef m /= 0] | mr <- r ]
 
   fromInteger 0 = Polynomial []
   fromInteger i = Polynomial [constant (fromInteger i)]
