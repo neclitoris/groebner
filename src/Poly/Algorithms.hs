@@ -12,8 +12,6 @@ import Control.Monad.Trans.Cont (evalCont, reset, shift)
 import Data.Maybe
 import Data.List
 
-import Debug.Trace
-
 import Poly.Monomial
 import Poly.Polynomial
 
@@ -37,7 +35,7 @@ reduceBy divisor dividend = evalCont $ reset do
   r <- maybe (shift \_ -> return dividend) return $ divide m n
   pure $ dividend - toPolynomial r * divisor
 
-reduceBySet :: (PolynomialConstraint (Polynomial f v o), Show f)
+reduceBySet :: PolynomialConstraint (Polynomial f v o)
             => [Polynomial f v o] -> Polynomial f v o -> Polynomial f v o
 reduceBySet divisors dividend = r
   where
@@ -54,7 +52,7 @@ sPolynomial g f = fromJust $ do
   pure $ toPolynomial (lcmLhsMult r) * g
        - toPolynomial (lcmRhsMult r) * f
 
-groebnerBasis :: (PolynomialConstraint (Polynomial f v o), Show f)
+groebnerBasis :: PolynomialConstraint (Polynomial f v o)
               => [Polynomial f v o] -> [Polynomial f v o]
 groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
                                  , let s = sPolynomial f g, s /= 0 ]
