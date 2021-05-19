@@ -54,7 +54,7 @@ buchbergerCriterion = withTests 1000 $ property do
     let basis   = groebnerBasis $ map (withOrder (Graded RevLex)) polys
         sPolys  = [ s | (f:gs) <- tails basis, g <- gs
                       , let s = sPolynomial f g, s /= 0]
-        reduced = map (reduceBySet basis) sPolys
+        reduced = map (leadReduceBySet basis) sPolys
     assert $ all (==0) reduced
 
 
