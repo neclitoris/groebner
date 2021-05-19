@@ -60,7 +60,7 @@ run :: (forall v . SingI v => [Polynomial (GF 127) v Lex] -> [Polynomial (GF 127
 run system pipeline n = withVariables (mkVars n) (pipeline . system)
 
 main = defaultMain
-  [ bgroup "find minimal Groebner basis, GF 127, grevlex"
+  [ bgroup "find reduced Groebner basis, GF 127, grevlex"
     [ bgroup "cyclic" $
         map (\i -> bench ("cyclic" ++ show i)
                      $ nf (run cyclic groebnerPipeline) i)
