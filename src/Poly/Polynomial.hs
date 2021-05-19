@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Polynomial
-  ( Polynomial
+  ( Polynomial(..)
   , variables
   , withVariables
   , leading
