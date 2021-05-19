@@ -108,11 +108,13 @@ instance (SingI vars, Eq field, MonomialOrder order, Fractional field)
 
   negate = Polynomial . map (mulFM (-1)) . pData
 
-  -- These definitions just satisfy the laws of Num class, no
-  -- other meaning.
-  abs = id
+  -- `abs` normalizes the polynomial, `signum` returns the leading
+  -- coefficient. This also satisfies `Num` laws.
+  abs (pData -> (m:ms)) = Polynomial $ map (mulFM (1 / coef m)) (m:ms)
+  abs 0                 = 0
 
-  signum = const 1
+  signum (pData -> (m:ms)) = toPolynomial (coef m)
+  signum 0                 = 0
 
 instance (Ordered (Monomial f v o), Eq f) => Ordered (Polynomial f v o) where
   type WithOrder (Polynomial f v o) = Polynomial f v

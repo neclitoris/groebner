@@ -68,7 +68,8 @@ groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
 
 autoReduce :: PolynomialConstraint (Polynomial f v o)
            => [Polynomial f v o] -> [Polynomial f v o]
-autoReduce basis = [ f | (before, f:after) <- breaks basis
-                       , reduceBySet (before ++ after) f /= 0]
+autoReduce basis = [ abs f' | (before, f:after) <- breaks basis
+                            , let f' = reduceBySet (before ++ after) f
+                            , f' /= 0 ]
   where
     breaks l = zip (inits l) (tails l)
