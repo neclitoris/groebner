@@ -63,7 +63,7 @@ groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
     go have (n:new) =
       case reduceBySet have n of
         0 -> go have new
-        s -> go (s : have) (new ++ sPolys have s)
+        s -> go (have ++ [s]) (new ++ sPolys have s)
     go have []      = have
 
 autoReduce :: PolynomialConstraint (Polynomial f v o)
