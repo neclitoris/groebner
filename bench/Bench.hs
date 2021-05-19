@@ -4,32 +4,17 @@
 {-# LANGUAGE TypeFamilies #-}
 import Criterion
 import Criterion.Main
-import Data.List
 import Data.Singletons
 import Data.Text qualified as Text
 
 import Poly.Algorithms
 import Poly.Fields
+import Poly.Ideals
 import Poly.Monomial.Order
 import Poly.Polynomial
 
 
 type instance Prime 127 = ()
-
-cyclic p = [ s | n <- [1..length p - 1]
-               , let s = sum
-                           $ take (length p)
-                           $ map (product . take n)
-                           $ tails
-                           $ cycle p
-           ] ++ [product p - 1]
-
-root p = map sigma [1..n - 1] ++ [sigma n - (-1)^(n - 1)]
-  where
-    n = length p
-    sigma m = sum $ map product
-      $ filter ((==m) . length)
-      $ subsequences p
 
 mkVars i = map (\i -> "x" <> Text.pack (show i)) [1..i]
 
@@ -69,5 +54,9 @@ main = defaultMain
         map (\i -> bench ("root" ++ show i)
                      $ nf (run root groebnerPipeline) i)
             [5..8]
+    , bgroup "katsura" $
+        map (\i -> bench ("katsura" ++ show i)
+                     $ nf (run root groebnerPipeline) i)
+            [4..8]
     ]
   ]
