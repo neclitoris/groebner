@@ -21,6 +21,7 @@ library
   exposed-modules:
       Poly.Algorithms
       Poly.Fields
+      Poly.Ideals
       Poly.Monomial
       Poly.Monomial.Internal
       Poly.Monomial.Order
@@ -37,31 +38,6 @@ library
   build-depends:
       base >=4.7 && <5
     , criterion >=1.5 && <2
-    , hedgehog ==1.*
-    , prettyprinter >=1.7 && <2
-    , singletons >=2.7 && <3
-    , tasty >=1.4 && <2
-    , tasty-hedgehog ==1.*
-    , text >=1.2 && <2
-    , transformers >=0.5 && <1
-    , vector >=0.12 && <1
-  default-language: Haskell2010
-
-executable groebner-exe
-  main-is: Groebner.hs
-  other-modules:
-      Paths_groebner
-  hs-source-dirs:
-      app
-  default-extensions:
-      ImportQualifiedPost
-      BlockArguments
-      ViewPatterns
-  ghc-options: -rtsopts
-  build-depends:
-      base >=4.7 && <5
-    , criterion >=1.5 && <2
-    , groebner
     , hedgehog ==1.*
     , prettyprinter >=1.7 && <2
     , singletons >=2.7 && <3

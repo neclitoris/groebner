@@ -29,15 +29,6 @@ dependencies:
 library:
   source-dirs: src
 
-executables:
-  groebner-exe:
-    main:                Groebner.hs
-    source-dirs:         app
-    ghc-options:
-    - -rtsopts
-    dependencies:
-    - groebner
-
 tests:
   groebner-test:
     main:                Spec.hs
