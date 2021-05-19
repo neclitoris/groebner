@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 import Criterion
 import Criterion.Main
@@ -14,7 +15,8 @@ import Poly.Monomial.Order
 import Poly.Polynomial
 
 
-type instance Prime 127 = ()
+$(assertPrimality 127)
+
 
 mkVars i = map (\i -> "x" <> Text.pack (show i)) [1..i]
 

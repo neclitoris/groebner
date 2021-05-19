@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -29,6 +30,9 @@ import Poly.Monomial.Variables
 import Poly.Polynomial
 
 import Util
+
+
+$(assertPrimality 5)
 
 
 properties :: Tasty.TestTree

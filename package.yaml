@@ -27,9 +27,12 @@ dependencies:
 - tasty-hunit >= 0.10 && < 1
 - HUnit >= 1.6 && < 2
 - criterion >= 1.5 && < 2
+- template-haskell >= 2.16 && < 3
 
 library:
   source-dirs: src
+  ghc-options:
+  - -Wincomplete-patterns
 
 tests:
   groebner-test:

@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -8,15 +9,17 @@ module Poly.Fields
   ( Q
   , (%%)
   , GF
-  , Prime
+  , assertPrimality
   , module Data.Ratio
   ) where
 
+import Control.Monad
 import Data.Kind
 import Data.Ratio
 import Data.Singletons
 import GHC.Natural
 import GHC.TypeLits
+import Language.Haskell.TH qualified as TH
 
 import Poly.Polynomial
 
@@ -29,12 +32,14 @@ type Q = Rational
 type family Prime (n :: Nat) :: Constraint
 
 -- Primality test of type level naturals is beyond me.
--- Declare instances like this, if you need them for other
--- primes.
-type instance Prime 2 = ()
-type instance Prime 3 = ()
-type instance Prime 5 = ()
-
+-- Use this to ensure primality.
+assertPrimality :: Integer -> TH.Q [TH.Dec]
+assertPrimality n =
+  if not (isPrime n)
+     then error $ show n ++ " is not prime"
+     else [d| type instance Prime $(TH.litT $ TH.numTyLit n) = () |]
+    where
+      isPrime n = and [ n `mod` d /= 0 | d <- takeWhile (\x -> x * x <= n) [2..]]
 
 newtype GF (p :: Nat) = GF Natural deriving (Show, Eq)
 
