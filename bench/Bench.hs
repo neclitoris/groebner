@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-import Control.Monad
 import Criterion
 import Criterion.Main
 import Data.List
@@ -30,7 +29,7 @@ root p = map sigma [1..n - 1] ++ [sigma n - (-1)^(n - 1)]
     n = length p
     sigma m = sum $ map product
       $ filter ((==m) . length)
-      $ filterM (const [True, False]) p
+      $ subsequences p
 
 mkVars i = map (\i -> "x" <> Text.pack (show i)) [1..i]
 
@@ -61,12 +60,14 @@ run :: (forall v . SingI v => [Polynomial (GF 127) v Lex] -> [Polynomial (GF 127
 run system pipeline n = withVariables (mkVars n) (pipeline . system)
 
 main = defaultMain
-  [ bgroup "cyclic" $
-      map (\i -> bench ("cyclic" ++ show i)
-                   $ nf (run cyclic groebnerPipeline) i)
-          [3..5]
-  , bgroup "root" $
-      map (\i -> bench ("root" ++ show i)
-                   $ nf (run root groebnerPipeline) i)
-          [5..8]
+  [ bgroup "find minimal Groebner basis, GF 127, grevlex"
+    [ bgroup "cyclic" $
+        map (\i -> bench ("cyclic" ++ show i)
+                     $ nf (run cyclic groebnerPipeline) i)
+            [3..5]
+    , bgroup "root" $
+        map (\i -> bench ("root" ++ show i)
+                     $ nf (run root groebnerPipeline) i)
+            [5..8]
+    ]
   ]
