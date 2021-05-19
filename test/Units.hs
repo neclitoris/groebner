@@ -22,16 +22,22 @@ import Util
 
 units :: Tasty.TestTree
 units = Tasty.testGroup "units"
-  [ root4
-  , root4grevlex
-  , cyclic4
-  , cyclic4grevlex
-  , katsura4
-  , katsura4grevlex
+  [ Tasty.testGroup "root4"
+    [ root4
+    , root4grevlex
+    ]
+  , Tasty.testGroup "cyclic4"
+    [ cyclic4
+    , cyclic4grevlex
+    ]
+  , Tasty.testGroup "katsura4"
+    [ katsura4
+    , katsura4grevlex
+    ]
   ]
 
 root4 :: Tasty.TestTree
-root4 = Tasty.testCase "root4/lex" $ withVariables ["x1", "x2", "x3", "x4"] f
+root4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
       = HU.assertBool "" (equiv basis expected)
@@ -44,7 +50,7 @@ root4 = Tasty.testCase "root4/lex" $ withVariables ["x1", "x2", "x3", "x4"] f
                    ]
 
 root4grevlex :: Tasty.TestTree
-root4grevlex = Tasty.testCase "root4/grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
+root4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
       = HU.assertBool "" (equiv basis expected)
@@ -58,7 +64,7 @@ root4grevlex = Tasty.testCase "root4/grevlex" $ withVariables ["x1", "x2", "x3",
                    ]
 
 cyclic4 :: Tasty.TestTree
-cyclic4 = Tasty.testCase "cyclic4/lex" $ withVariables ["x1", "x2", "x3", "x4"] f
+cyclic4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
       = HU.assertBool "" (equiv basis expected)
@@ -73,7 +79,7 @@ cyclic4 = Tasty.testCase "cyclic4/lex" $ withVariables ["x1", "x2", "x3", "x4"] 
                    ]
 
 cyclic4grevlex :: Tasty.TestTree
-cyclic4grevlex = Tasty.testCase "cyclic4/grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
+cyclic4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
       = HU.assertBool "" (equiv basis expected)
@@ -90,7 +96,7 @@ cyclic4grevlex = Tasty.testCase "cyclic4/grevlex" $ withVariables ["x1", "x2", "
                    ]
 
 katsura4 :: Tasty.TestTree
-katsura4 = Tasty.testCase "katsura4/lex" $ withVariables ["x1", "x2", "x3", "x4"] f
+katsura4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
       = HU.assertBool "" (equiv basis expected)
@@ -111,7 +117,7 @@ katsura4 = Tasty.testCase "katsura4/lex" $ withVariables ["x1", "x2", "x3", "x4"
                    ]
 
 katsura4grevlex :: Tasty.TestTree
-katsura4grevlex = Tasty.testCase "katsura4/grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
+katsura4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
       = HU.assertBool "" (equiv basis expected)
