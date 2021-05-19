@@ -6,6 +6,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Fields
   ( Q
+  , (%%)
   , GF
   , Prime
   , module Data.Ratio
@@ -17,8 +18,13 @@ import Data.Singletons
 import GHC.Natural
 import GHC.TypeLits
 
+import Poly.Polynomial
+
 
 type Q = Rational
+
+(%%) :: PolynomialConstraint (Polynomial Q v o) => Integer -> Integer -> Polynomial Q v o
+(%%) n = toPolynomial . (%) n
 
 type family Prime (n :: Nat) :: Constraint
 
