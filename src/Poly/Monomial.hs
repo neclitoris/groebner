@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
@@ -30,6 +31,9 @@ import Data.List qualified as L
 import Data.Maybe
 import Data.Vector.Storable qualified as VS
 import Data.Singletons
+#if MIN_VERSION_singletons(3,0,0)
+import GHC.TypeLits.Singletons
+#endif
 
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.String qualified as PP
@@ -45,7 +49,7 @@ newtype Monomial (field :: Type) (vars :: Vars) (order :: Type) =
   MonomialImpl { mData :: MonomialData field }
   deriving (Eq)
 
-
+{-# COMPLETE MonomialVec #-}
 pattern MonomialVec :: f -> VS.Vector Int -> Monomial f v o
 pattern MonomialVec coef powers  = MonomialImpl (MonomialData coef powers)
 
@@ -53,6 +57,7 @@ pattern MonomialVec coef powers  = MonomialImpl (MonomialData coef powers)
 viewMono :: Monomial f v o -> (f, [Int])
 viewMono (MonomialImpl (MonomialData coef powers)) = (coef, VS.toList powers)
 
+{-# COMPLETE Monomial #-}
 pattern Monomial :: f -> [Int] -> Monomial f v o
 pattern Monomial{coef, powers} <- (viewMono -> (coef, powers))
   where
