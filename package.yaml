@@ -17,17 +17,19 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - vector >= 0.12 && < 1
-- singletons >= 2.7 && < 3
 - prettyprinter >= 1.7 && < 2
 - text >= 1.2 && < 2
 - transformers >= 0.5 && < 1
-- tasty >= 1.4 && < 2
-- tasty-hedgehog >= 1 && < 2
-- hedgehog >= 1 && < 2
-- tasty-hunit >= 0.10 && < 1
-- HUnit >= 1.6 && < 2
-- criterion >= 1.5 && < 2
 - template-haskell >= 2.16 && < 3
+when:
+  - condition: impl(ghc >= 9.0)
+    then:
+      dependencies:
+        - singletons >= 3.0 && < 3.1
+        - singletons-base >= 3.0 && < 3.1
+    else:
+      dependencies:
+        - singletons >= 2.7 && < 3
 
 library:
   source-dirs: src
@@ -42,6 +44,11 @@ tests:
     - -rtsopts
     dependencies:
     - groebner
+    - tasty >= 1.4 && < 2
+    - tasty-hedgehog >= 1 && < 2
+    - hedgehog >= 1 && < 2
+    - tasty-hunit >= 0.10 && < 1
+    - HUnit >= 1.6 && < 2
 
 benchmarks:
   groebner-bench:
@@ -51,6 +58,7 @@ benchmarks:
     - -rtsopts
     dependencies:
     - groebner
+    - criterion >= 1.5 && < 2
 
 default-extensions:
 - ImportQualifiedPost
