@@ -72,16 +72,19 @@ withVariables v f =
 
 leading :: Polynomial f v o -> Maybe (Monomial f v o)
 leading (monomials -> (x:_)) = Just x
-leading _                = Nothing
+leading _                    = Nothing
 
 
 instance (PolynomialConstraint (Polynomial f v o), Show f)
     => PP.Pretty (Polynomial f v o) where
   pretty (monomials -> []) = PP.pretty "0"
-  pretty (map prettySign . monomials -> ((s,x):xs)) =
+  pretty (monomials -> (m:ms)) =
     PP.fillSep $
       PP.pretty (if s == LT then "-" else "") <> x
       : map (\(s, x) -> PP.pretty (if s == LT then "-" else "+") <+> x) xs
+    where
+      (s, x) = prettySign m
+      xs     = map prettySign ms
 
 instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
@@ -112,10 +115,10 @@ instance (SingI vars, Eq field, MonomialOrder order, Fractional field)
   -- `abs` normalizes the polynomial, `signum` returns the leading
   -- coefficient. This also satisfies `Num` laws.
   abs (monomials -> (m:ms)) = Polynomial $ map (mulFM (1 / coef m)) (m:ms)
-  abs 0                 = 0
+  abs (monomials -> [])     = 0
 
   signum (monomials -> (m:ms)) = toPolynomial (coef m)
-  signum 0                 = 0
+  signum (monomials -> [])     = 0
 
 instance (Ordered (Monomial f v o), Eq f) => Ordered (Polynomial f v o) where
   type WithOrder (Polynomial f v o) = Polynomial f v
