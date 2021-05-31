@@ -45,7 +45,7 @@ maybeFullyReduceBy
   => Polynomial f v o -> Polynomial f v o -> Maybe (Polynomial f v o)
 maybeFullyReduceBy divisor dividend = do
   lead <- leading divisor
-  r    <- listToMaybe $ catMaybes [ divide m lead | m <- pData dividend ]
+  r    <- listToMaybe $ catMaybes [ divide m lead | m <- monomials dividend ]
   pure $ dividend - toPolynomial r * divisor
 
 fullyReduceBy
@@ -55,7 +55,7 @@ fullyReduceBy divisor dividend = dividend - r * divisor
   where
     lead = fromMaybe (error "Division by zero") $ leading divisor
     r    = maybe 1 toPolynomial $ listToMaybe $ catMaybes
-            [ divide m lead | m <- pData dividend ]
+            [ divide m lead | m <- monomials dividend ]
 
 reduceBySet
   :: PolynomialConstraint (Polynomial f v o)
