@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module Poly.Algorithms
   ( leadReduceBy
   , maybeLeadReduceBy
@@ -12,6 +11,7 @@ module Poly.Algorithms
   , autoReduce
   ) where
 
+import Control.Monad
 import Control.Monad.Trans.Cont (evalCont, reset, shift)
 
 import Data.Maybe
@@ -87,14 +87,22 @@ sPolynomial g f = fromJust $ do
 groebnerBasis :: PolynomialConstraint (Polynomial f v o)
               => [Polynomial f v o] -> [Polynomial f v o]
 groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
-                                 , let s = sPolynomial f g, s /= 0 ]
+                                 , s <- maybeToList $ maybeSPoly f g ]
   where
-    sPolys set new = [ s | f <- set, let s = sPolynomial f new, s /= 0 ]
+    sPolys set new = [ s | f <- set, s <- maybeToList $ maybeSPoly f new ]
+
+    maybeSPoly f g = do
+      m <- leading f
+      n <- leading g
+      let r = lcm m n
+      guard (lcmLhsMult r /= n)
+      pure $ toPolynomial (lcmLhsMult r) * f
+           - toPolynomial (lcmRhsMult r) * g
 
     go have (n:new) =
       case leadReduceBySet have n of
         0 -> go have new
-        s -> go (have ++ [s]) (new ++ sPolys have s)
+        s -> go (have ++ [fullyReduceBySet have s]) (new ++ sPolys have s)
     go have []      = have
 
 autoReduce :: PolynomialConstraint (Polynomial f v o)
