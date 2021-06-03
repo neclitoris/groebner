@@ -35,7 +35,7 @@ newtype Polynomial (field :: Type) (vars :: Vars) (order :: Type) =
 
 type family PolynomialConstraint p :: Constraint where
   PolynomialConstraint (Polynomial f v o)
-    = (Fractional f, Eq f, SingI v, MonomialOrder o)
+    = (Fractional f, Eq f, SingI v, MonomialOrder o, Show f)
 
 
 class IsPolynomial f v o t where
@@ -63,7 +63,7 @@ variables = map (Polynomial . (:[]) . Monomial 1) pows
     len  = length $ fromSing (sing @v)
     pows = map (\i -> map (\j -> if i == j then 1 else 0) [1..len]) [1..len]
 
-withVariables :: forall f r . (Fractional f, Eq f)
+withVariables :: forall f r . (Fractional f, Eq f, Show f)
               => Demote Vars
               -> (forall v. SingI v => [Polynomial f v Lex] -> r)
               -> r
@@ -90,7 +90,7 @@ instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
-instance (SingI vars, Eq field, MonomialOrder order, Fractional field)
+instance (SingI vars, Eq field, MonomialOrder order, Fractional field, Show field)
     => Num (Polynomial field vars order) where
   (monomials -> l) + (monomials -> r) =
     Polynomial $ impl l r where
