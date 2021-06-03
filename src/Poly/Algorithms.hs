@@ -86,8 +86,7 @@ sPolynomial g f = fromJust $ do
 
 groebnerBasis :: PolynomialConstraint (Polynomial f v o)
               => [Polynomial f v o] -> [Polynomial f v o]
-groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
-                                 , s <- maybeToList $ maybeSPoly f g ]
+groebnerBasis = fst . head . dropWhile (not . null . snd) . iters
   where
     sPolys set new = [ s | f <- set, s <- maybeToList $ maybeSPoly f new ]
 
@@ -101,9 +100,14 @@ groebnerBasis gens = go gens [ s | (f:gs) <- tails gens, g <- gs
 
     go have (n:new) =
       case leadReduceBySet have n of
-        0 -> go have new
-        s -> go (have ++ [fullyReduceBySet have s]) (new ++ sPolys have s)
-    go have []      = have
+        0 -> (have, new)
+        s -> (have ++ [fullyReduceBySet have s], new ++ sPolys have s)
+    go have []      = (have, [])
+
+    iters gens = iterate (uncurry go)
+                         (gens
+                         , [ s | (f:gs) <- tails gens, g <- gs
+                           , s <- maybeToList $ maybeSPoly f g ])
 
 autoReduce :: PolynomialConstraint (Polynomial f v o)
            => [Polynomial f v o] -> [Polynomial f v o]
