@@ -6,7 +6,7 @@ cabal-version: 1.12
 
 name:           groebner
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/groebner#readme>
+description:    Please see the README on GitHub at <https://github.com/neclitoris/groebner#readme>
 homepage:       https://github.com/neclitoris/groebner#readme
 bug-reports:    https://github.com/neclitoris/groebner/issues
 build-type:     Simple

@@ -10,16 +10,21 @@
 module Poly.Monomial
   ( Monomial
   , pattern Monomial
+  , coef
+  , powers
+
+  -- * Operations on monomials
   , mulM
   , addM
   , unsafeAddM
   , mulFM
-  , constant
-  , coef
-  , powers
   , LCM(..)
   , lcm
   , divide
+
+  -- * Other
+  , constant
+  , variables
   , prettySign
   , module Poly.Monomial.Order
   ) where
@@ -45,6 +50,8 @@ import Poly.Monomial.Variables
 import Prelude hiding (lcm)
 
 
+-- | Type that represents monomials. Parametrized by field of coefficients,
+-- list of variables and monomial ordering.
 newtype Monomial (field :: Type) (vars :: Vars) (order :: Type) =
   MonomialImpl { mData :: MonomialData field }
   deriving (Eq)
@@ -58,34 +65,49 @@ viewMono :: Monomial f v o -> (f, [Int])
 viewMono (MonomialImpl (MonomialData coef powers)) = (coef, VS.toList powers)
 
 {-# COMPLETE Monomial #-}
-pattern Monomial :: f -> [Int] -> Monomial f v o
+pattern Monomial :: f              -- ^ Coefficient
+                 -> [Int]          -- ^ Powers of variables
+                 -> Monomial f v o
 pattern Monomial{coef, powers} <- (viewMono -> (coef, powers))
   where
     Monomial coef powers = MonomialImpl (MonomialData coef (VS.fromList powers))
 
 
+-- | Multiply monomials.
 mulM :: Fractional f => Monomial f v o -> Monomial f v o -> Monomial f v o
 mulM (MonomialVec c1 p1) (MonomialVec c2 p2) =
   MonomialVec (c1 * c2) (VS.zipWith (+) p1 p2)
 
+-- | Add monomials.
 addM :: Fractional f
      => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
 addM (Monomial c1 p1) (Monomial c2 p2) = do
   guard $ p1 == p2
   pure $ Monomial (c1 + c2) p1
 
+-- | Add monomials, assuming they have equal terms.
 unsafeAddM :: Fractional f
            => Monomial f v o -> Monomial f v o -> Monomial f v o
 unsafeAddM (Monomial c1 p) (Monomial c2 _) = Monomial (c1 + c2) p
 
+-- | Multiply monomial by a constant.
+mulFM :: Fractional f => f -> Monomial f v o -> Monomial f v o
+mulFM x (MonomialVec coef powers) = MonomialVec (x * coef) powers
+
+-- | Constant monomial.
 constant :: forall f o v. (Fractional f, SingI v) => f -> Monomial f v o
 constant f =
   MonomialVec f (VS.replicate l 0)
     where
       l = length $ fromSing (sing :: Sing v)
 
-mulFM :: Fractional f => f -> Monomial f v o -> Monomial f v o
-mulFM x (MonomialVec coef powers) = MonomialVec (x * coef) powers
+-- | List of monomials that represent individual variables, in lexicographic
+-- order.
+variables :: forall v f . (Num f, SingI v) => [Monomial f v Lex]
+variables = map (Monomial 1) pows
+  where
+    len  = length $ fromSing (sing @v)
+    pows = map (\i -> map (\j -> if i == j then 1 else 0) [1..len]) [1..len]
 
 
 data LCM f v o = LCM
@@ -95,6 +117,7 @@ data LCM f v o = LCM
   }
   deriving Show
 
+-- | Compute least common multiple of two monomials.
 lcm :: Fractional f => Monomial f v o -> Monomial f v o -> LCM f v o
 lcm (MonomialVec c1 p1) (MonomialVec c2 p2) = LCM
   (MonomialVec c2 (VS.zipWith (-) res p1))
@@ -103,6 +126,7 @@ lcm (MonomialVec c1 p1) (MonomialVec c2 p2) = LCM
     where
       res = VS.zipWith max p1 p2
 
+-- | Divide monomial by another, if possible.
 divide :: Fractional f
        => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
 divide (MonomialVec c1 p1) (MonomialVec c2 p2) = do

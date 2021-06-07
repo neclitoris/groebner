@@ -10,8 +10,9 @@ module Poly.Fields
   ( Q
   , (%%)
   , GF
+
+  -- * Other
   , assertPrimality
-  , module Data.Ratio
   ) where
 
 import Control.Monad
@@ -64,7 +65,7 @@ instance (Num (GF p), SingI p, Prime p) => Fractional (GF p) where
                     in fromInteger x / fromInteger y
 
 
--- Primality test of type level naturals is beyond me.
+-- | Primality test of type level naturals is beyond me.
 -- Use this to ensure primality.
 assertPrimality :: Integer -> TH.Q [TH.Dec]
 assertPrimality n =

@@ -9,12 +9,15 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Polynomial
   ( Polynomial
-  , monomials
-  , variables
-  , withVariables
-  , leading
   , IsPolynomial(..)
   , PolynomialConstraint
+
+  -- * Monomial views
+  , monomials
+  , leading
+
+  -- * Other
+  , withVariables
   ) where
 
 import Data.Kind
@@ -30,15 +33,22 @@ import Poly.Monomial
 import Poly.Monomial.Variables
 
 
+-- | Type that represents polynomials. Parametrized by field of coefficients,
+-- list of variables and monomial ordering.
 newtype Polynomial (field :: Type) (vars :: Vars) (order :: Type) =
-  Polynomial { monomials :: [Monomial field vars order] }
+  Polynomial { monomials :: [Monomial field vars order] -- ^ View list of monomials
+                                                        -- in order.
+             }
   deriving (Eq)
 
+-- | Constraint that means that polynomial supports all basic operations, defined
+-- for convenience.
 type family PolynomialConstraint p :: Constraint where
   PolynomialConstraint (Polynomial f v o)
     = (Fractional f, Eq f, SingI v, MonomialOrder o, Show f)
 
 
+-- | Class that allows different types to be converted to `Polynomial`.
 class IsPolynomial f v o t where
   toPolynomial :: t -> Polynomial f v o
 
@@ -57,19 +67,22 @@ instance PolynomialConstraint (Polynomial f v o)
   toPolynomial = id
 
 
-variables :: forall v f . PolynomialConstraint (Polynomial f v Lex)
-          => [Polynomial f v Lex]
-variables = map (Polynomial . (:[]) . Monomial 1) pows
-  where
-    len  = length $ fromSing (sing @v)
-    pows = map (\i -> map (\j -> if i == j then 1 else 0) [1..len]) [1..len]
-
+-- | Lift a list of variable names to type level, and pass list of
+-- polynomials representing them to a continuation. This can be used
+-- like:
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- >
+-- > withVariables ["x", "y", "z"] $ \[x, y, z] ->
+-- >   print (x * y + z^2)
 withVariables :: (Fractional f, Eq f, Show f)
               => Demote Vars
               -> (forall v. SingI v => [Polynomial f v Lex] -> r)
               -> r
-withVariables v f = withSomeSing v \(s :: Sing v) -> withSingI s $ f $ variables @v
+withVariables v f = withSomeSing v \(s :: Sing v) ->
+  withSingI s $ f $ map (Polynomial . (:[])) (variables @v)
 
+-- | View the leading monomial of a polynomial, if it's not zero.
 leading :: Polynomial f v o -> Maybe (Monomial f v o)
 leading = listToMaybe . monomials
 
@@ -89,6 +102,8 @@ instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
+-- | `abs` normalizes the polynomial, `signum` returns the leading
+-- coefficient. This behavior satisfies `Num` laws.
 instance PolynomialConstraint (Polynomial field vars order)
     => Num (Polynomial field vars order) where
   (monomials -> l) + (monomials -> r) =
@@ -111,8 +126,6 @@ instance PolynomialConstraint (Polynomial field vars order)
 
   negate = Polynomial . map (mulFM (-1)) . monomials
 
-  -- `abs` normalizes the polynomial, `signum` returns the leading
-  -- coefficient. This also satisfies `Num` laws.
   abs = Polynomial . (\l -> map (mulFM (1 / coef (head l))) l) . monomials
 
   signum = maybe 0 (toPolynomial . coef) . leading
