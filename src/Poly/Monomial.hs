@@ -143,7 +143,7 @@ instance PP.Pretty (Monomial f v o) => Show (Monomial f v o) where
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
 instance (Eq f, MonomialOrder o) => Ord (Monomial f v o) where
-  compare (MonomialImpl l) (MonomialImpl r) = monoCompare (order :: o) l r
+  compare (MonomialVec _ l) (MonomialVec _ r) = monoCompare (order :: o) l r
 
 instance MonomialOrder o => Ordered (Monomial f v o) where
   type WithOrder (Monomial f v o) = Monomial f v

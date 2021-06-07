@@ -19,6 +19,7 @@ module Poly.Polynomial
 
 import Data.Kind
 import Data.List qualified as L
+import Data.Maybe
 import Data.Singletons
 
 import Prettyprinter ((<+>))
@@ -63,19 +64,17 @@ variables = map (Polynomial . (:[]) . Monomial 1) pows
     len  = length $ fromSing (sing @v)
     pows = map (\i -> map (\j -> if i == j then 1 else 0) [1..len]) [1..len]
 
-withVariables :: forall f r . (Fractional f, Eq f, Show f)
+withVariables :: (Fractional f, Eq f, Show f)
               => Demote Vars
               -> (forall v. SingI v => [Polynomial f v Lex] -> r)
               -> r
-withVariables v f =
-  withSomeSing v \(s :: Sing v) -> withSingI s $ f $ variables @v
+withVariables v f = withSomeSing v \(s :: Sing v) -> withSingI s $ f $ variables @v
 
 leading :: Polynomial f v o -> Maybe (Monomial f v o)
-leading (monomials -> (x:_)) = Just x
-leading _                    = Nothing
+leading = listToMaybe . monomials
 
 
-instance (PolynomialConstraint (Polynomial f v o), Show f)
+instance PolynomialConstraint (Polynomial f v o)
     => PP.Pretty (Polynomial f v o) where
   pretty (monomials -> []) = PP.pretty "0"
   pretty (monomials -> (m:ms)) =
@@ -90,7 +89,7 @@ instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
-instance (SingI vars, Eq field, MonomialOrder order, Fractional field, Show field)
+instance PolynomialConstraint (Polynomial field vars order)
     => Num (Polynomial field vars order) where
   (monomials -> l) + (monomials -> r) =
     Polynomial $ impl l r where
@@ -105,7 +104,7 @@ instance (SingI vars, Eq field, MonomialOrder order, Fractional field, Show fiel
                   s           -> s : impl xs ys
 
   (monomials -> l) * (monomials -> r) =
-    sum [ Polynomial [ m | ml <- l, let m = mulM ml mr, coef m /= 0] | mr <- r ]
+    sum . map (Polynomial . (:[])) $ mulM <$> l <*> r
 
   fromInteger 0 = Polynomial []
   fromInteger i = Polynomial [constant (fromInteger i)]
@@ -114,11 +113,9 @@ instance (SingI vars, Eq field, MonomialOrder order, Fractional field, Show fiel
 
   -- `abs` normalizes the polynomial, `signum` returns the leading
   -- coefficient. This also satisfies `Num` laws.
-  abs (monomials -> (m:ms)) = Polynomial $ map (mulFM (1 / coef m)) (m:ms)
-  abs (monomials -> [])     = 0
+  abs = Polynomial . (\l -> map (mulFM (1 / coef (head l))) l) . monomials
 
-  signum (monomials -> (m:ms)) = toPolynomial (coef m)
-  signum (monomials -> [])     = 0
+  signum = maybe 0 (toPolynomial . coef) . leading
 
 instance (Ordered (Monomial f v o), Eq f) => Ordered (Polynomial f v o) where
   type WithOrder (Polynomial f v o) = Polynomial f v

@@ -27,7 +27,8 @@ import Poly.Polynomial
 
 newtype Q = Q Rational deriving (Eq, Ord, Num, Fractional, Real, RealFrac)
 
-(%%) :: PolynomialConstraint (Polynomial Q v o) => Integer -> Integer -> Polynomial Q v o
+(%%) :: PolynomialConstraint (Polynomial Q v o)
+     => Integer -> Integer -> Polynomial Q v o
 (%%) n = toPolynomial . Q . (%) n
 
 instance Show Q where
@@ -71,7 +72,7 @@ assertPrimality n =
      then error $ show n ++ " is not prime"
      else [d| type instance Prime $(TH.litT $ TH.numTyLit n) = () |]
     where
-      isPrime n = and [ n `mod` d /= 0 | d <- takeWhile (\x -> x * x <= n) [2..]]
+      isPrime n = and [ n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) [2..]]
 
 data GCDEx =
   GCDEx { gcdLhsCoef :: Integer
