@@ -58,7 +58,7 @@ main = defaultMain
             [5..8]
     , bgroup "katsura" $
         map (\i -> bench ("katsura" ++ show i)
-                     $ nf (run root groebnerPipeline) i)
-            [4..8]
+                     $ nf (run katsura groebnerPipeline) i)
+            [4..6]
     ]
   ]
