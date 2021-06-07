@@ -38,6 +38,7 @@ $(assertPrimality 5)
 properties :: Tasty.TestTree
 properties = Tasty.testGroup "properties"
   [ Tasty.testProperty "buchberger criterion" buchbergerCriterion
+  , Tasty.testProperty "contains original ideal" containsOriginal
   , Tasty.testProperty "order invariance" orderInvariance
   ]
 
@@ -54,6 +55,22 @@ buchbergerCriterion = withTests 1000 $ property do
         sPolys  = [ s | (f:gs) <- tails basis, g <- gs
                       , let s = sPolynomial f g, s /= 0]
         reduced = map (leadReduceBySet basis) sPolys
+
+    annotateShow basis
+    annotateShow reduced
+
+    assert $ all (==0) reduced
+
+containsOriginal :: Property
+containsOriginal = property do
+  numNames <- forAll $ Gen.int (Range.linear 2 4)
+  let names = map (\n -> "x" <> Text.pack (show n)) [1..numNames]
+
+  withVariables names \(vs :: [Polynomial (GF 5) v Lex]) -> do
+    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
+
+    let basis   = groebnerBasis polys
+        reduced = map (leadReduceBySet basis) polys
 
     annotateShow basis
     annotateShow reduced
