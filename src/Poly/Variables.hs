@@ -1,4 +1,4 @@
-module Poly.Monomial.Variables
+module Poly.Variables
   ( Vars
   ) where
 

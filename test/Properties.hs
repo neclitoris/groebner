@@ -26,7 +26,6 @@ import Test.Tasty.Hedgehog qualified as Tasty
 import Poly.Algorithms
 import Poly.Fields
 import Poly.Monomial.Order
-import Poly.Monomial.Variables
 import Poly.Polynomial
 
 import Util

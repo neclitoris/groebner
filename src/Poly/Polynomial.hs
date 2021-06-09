@@ -8,7 +8,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Polynomial
-  ( Polynomial
+  (
+  -- * Handy reexports
+    module Poly.Variables
+
+  -- * Polynomial type
+  , Polynomial
   , IsPolynomial(..)
   , PolynomialConstraint
 
@@ -29,8 +34,9 @@ import Prettyprinter ((<+>))
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.String qualified as PP
 
-import Poly.Monomial
-import Poly.Monomial.Variables
+import Poly.Monomial hiding ( variables )
+import Poly.Monomial qualified as M ( variables )
+import Poly.Variables
 
 
 -- | Type that represents polynomials. Parametrized by field of coefficients,
@@ -66,6 +72,11 @@ instance PolynomialConstraint (Polynomial f v o)
     => IsPolynomial f v o (Polynomial f v o) where
   toPolynomial = id
 
+-- | List of polynomials that represent individual variables, in lexicographic
+-- order.
+variables :: forall v f . PolynomialConstraint (Polynomial f v Lex)
+          => [Polynomial f v Lex]
+variables = Polynomial . (:[]) <$> M.variables
 
 -- | Lift a list of variable names to type level, and pass list of
 -- polynomials representing them to a continuation. This can be used
@@ -79,8 +90,7 @@ withVariables :: (Fractional f, Eq f, Show f)
               => Demote Vars
               -> (forall v. SingI v => [Polynomial f v Lex] -> r)
               -> r
-withVariables v f = withSomeSing v \(s :: Sing v) ->
-  withSingI s $ f $ map (Polynomial . (:[])) (variables @v)
+withVariables v f = withSomeSing v \(s :: Sing v) -> withSingI s $ f $ variables @v
 
 -- | View the leading monomial of a polynomial, if it's not zero.
 leading :: Polynomial f v o -> Maybe (Monomial f v o)

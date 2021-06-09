@@ -25,8 +25,8 @@ library
       Poly.Monomial
       Poly.Monomial.Internal
       Poly.Monomial.Order
-      Poly.Monomial.Variables
       Poly.Polynomial
+      Poly.Variables
   other-modules:
       Paths_groebner
   hs-source-dirs:

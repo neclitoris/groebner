@@ -14,7 +14,6 @@ import Poly.Fields
 import Poly.Ideals
 import Poly.Monomial
 import Poly.Monomial.Order
-import Poly.Monomial.Variables
 import Poly.Polynomial
 
 import Util

@@ -8,7 +8,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Monomial
-  ( Monomial
+  (
+  -- * Handy reexports
+    module Poly.Monomial.Order
+
+  -- * Monomial type
+  , Monomial
   , pattern Monomial
   , coef
   , powers
@@ -26,7 +31,6 @@ module Poly.Monomial
   , constant
   , variables
   , prettySign
-  , module Poly.Monomial.Order
   ) where
 
 import Control.Monad
@@ -45,7 +49,7 @@ import Prettyprinter.Render.String qualified as PP
 
 import Poly.Monomial.Internal
 import Poly.Monomial.Order
-import Poly.Monomial.Variables
+import Poly.Variables
 
 import Prelude hiding (lcm)
 
