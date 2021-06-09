@@ -15,8 +15,8 @@ module Poly.Monomial.Order
   ) where
 
 import Data.Kind
-import Data.Vector.Storable ((!))
-import Data.Vector.Storable qualified as VS
+import Data.Vector.Unboxed ((!))
+import Data.Vector.Unboxed qualified as V
 
 
 -- | Monomial order is a relation which is expected to satisfy the following
@@ -32,7 +32,7 @@ class MonomialOrder order where
   order            :: order
   -- | Compare monomials represented by vector of powers of variables in
   -- lexicographic order.
-  monoCompare      :: order -> VS.Vector Int -> VS.Vector Int -> Ordering
+  monoCompare      :: order -> V.Vector Int -> V.Vector Int -> Ordering
 
 class MonomialOrder (Order a) => Ordered a where
   type WithOrder a :: Type -> Type
@@ -59,7 +59,7 @@ data RevLex = RevLex deriving Show
 instance MonomialOrder RevLex where
   order = RevLex
 
-  monoCompare _ l r = compare EQ $ VS.reverse l `compare` VS.reverse r
+  monoCompare _ l r = compare EQ $ V.reverse l `compare` V.reverse r
 
 
 -- | Graded ordering. First compares total degree of monomials, using
@@ -69,7 +69,7 @@ newtype Graded order = Graded order deriving Show
 instance MonomialOrder order => MonomialOrder (Graded order) where
   order = Graded order
 
-  monoCompare (Graded order) l r = (VS.sum l `compare` VS.sum r) <> monoCompare order l r
+  monoCompare (Graded order) l r = (V.sum l `compare` V.sum r) <> monoCompare order l r
 
 
 type DegLex = Graded Lex

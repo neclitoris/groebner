@@ -3,11 +3,11 @@ module Poly.Monomial.Internal
   ( MonomialData(..)
   ) where
 
-import Data.Vector.Storable qualified as VS
+import Data.Vector.Unboxed qualified as V
 
 
 data MonomialData field = MonomialData
   { mdCoef :: !field
-  , mdPowers :: !(VS.Vector Int)
+  , mdPowers :: !(V.Vector Int)
   } deriving (Show, Eq)
 

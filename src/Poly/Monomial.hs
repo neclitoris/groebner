@@ -39,7 +39,7 @@ import Data.Bifunctor
 import Data.Kind
 import Data.List qualified as L
 import Data.Maybe
-import Data.Vector.Storable qualified as VS
+import Data.Vector.Unboxed qualified as V
 import Data.Singletons
 #if MIN_VERSION_singletons(3,0,0)
 import GHC.TypeLits.Singletons
@@ -62,16 +62,16 @@ newtype Monomial (field :: Type) (vars :: Vars) (order :: Type) =
   deriving (Eq)
 
 {-# COMPLETE Monomial #-}
-pattern Monomial :: f -> VS.Vector Int -> Monomial f v o
+pattern Monomial :: f -> V.Vector Int -> Monomial f v o
 pattern Monomial coef powers  = MonomialImpl (MonomialData coef powers)
 
 coef   (Monomial c _) = c
-powers (Monomial _ p) = VS.toList p
+powers (Monomial _ p) = V.toList p
 
 -- | Multiply monomials.
 mulM :: Fractional f => Monomial f v o -> Monomial f v o -> Monomial f v o
 mulM (Monomial c1 p1) (Monomial c2 p2) =
-  Monomial (c1 * c2) (VS.zipWith (+) p1 p2)
+  Monomial (c1 * c2) (V.zipWith (+) p1 p2)
 
 -- | Add monomials.
 addM :: Fractional f
@@ -91,7 +91,7 @@ mulFM x (Monomial coef powers) = Monomial (x * coef) powers
 
 -- | Constant monomial.
 constant :: forall f o v. (Fractional f, SingI v) => f -> Monomial f v o
-constant f = Monomial f (VS.replicate l 0)
+constant f = Monomial f (V.replicate l 0)
     where
       l = length $ fromSing (sing :: Sing v)
 
@@ -101,7 +101,7 @@ variables :: forall v f . (Num f, SingI v) => [Monomial f v Lex]
 variables = map (Monomial 1) pows
   where
     len  = length $ fromSing (sing @v)
-    pows = map (\i -> VS.generate len (\j -> if i == j + 1 then 1 else 0)) [1..len]
+    pows = map (\i -> V.generate len (\j -> if i == j + 1 then 1 else 0)) [1..len]
 
 
 data LCM f v o = LCM
@@ -114,18 +114,18 @@ data LCM f v o = LCM
 -- | Compute least common multiple of two monomials.
 lcm :: Fractional f => Monomial f v o -> Monomial f v o -> LCM f v o
 lcm (Monomial c1 p1) (Monomial c2 p2) = LCM
-  (Monomial c2 (VS.zipWith (-) res p1))
-  (Monomial c1 (VS.zipWith (-) res p2))
+  (Monomial c2 (V.zipWith (-) res p1))
+  (Monomial c1 (V.zipWith (-) res p2))
   (Monomial (c1 * c2) res)
     where
-      res = VS.zipWith max p1 p2
+      res = V.zipWith max p1 p2
 
 -- | Divide monomial by another, if possible.
 divide :: Fractional f
        => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
 divide (Monomial c1 p1) (Monomial c2 p2) = do
-  let pows = VS.zipWith (-) p1 p2
-  guard (VS.all (>=0) pows)
+  let pows = V.zipWith (-) p1 p2
+  guard (V.all (>=0) pows)
   pure $ Monomial (c1 / c2) pows
 
 
