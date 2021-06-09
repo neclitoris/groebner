@@ -47,11 +47,7 @@ data Lex = Lex deriving Show
 instance MonomialOrder Lex where
   order = Lex
 
-  monoCompare _ l r = go 0
-    where
-      go i
-        | i == VS.length l = EQ
-        | otherwise = compare (l ! i) (r ! i) <> go (i + 1)
+  monoCompare _ l r = l `compare` r
 
 
 -- | Reverse lexicographic ordering. Strictly speaking, it's not
@@ -63,11 +59,7 @@ data RevLex = RevLex deriving Show
 instance MonomialOrder RevLex where
   order = RevLex
 
-  monoCompare _ l r = compare EQ $ go (VS.length l - 1)
-    where
-      go i
-        | i == 0 = EQ
-        | otherwise = compare (l ! i) (r ! i) <> go (i - 1)
+  monoCompare _ l r = compare EQ $ VS.reverse l `compare` VS.reverse r
 
 
 -- | Graded ordering. First compares total degree of monomials, using
