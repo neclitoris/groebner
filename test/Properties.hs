@@ -50,7 +50,7 @@ buchbergerCriterion = withTests 1000 $ property do
   withVariables names \(vs :: [Polynomial (GF 5) v Lex]) -> do
     polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
 
-    let basis   = groebnerBasis $ map (withOrder (Graded RevLex)) polys
+    let basis   = groebnerBasis $ map (withOrder DegRevLex) polys
         sPolys  = [ s | (f:gs) <- tails basis, g <- gs
                       , let s = sPolynomial f g, s /= 0]
         reduced = map (leadReduceBySet basis) sPolys
@@ -85,8 +85,8 @@ orderInvariance = property do
     polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 4) (genPoly genGF vs)
 
     let calcGrevlex :: (PolynomialConstraint (Polynomial f v o))
-                => [Polynomial f v o] -> [Polynomial f v (Graded RevLex)]
-        calcGrevlex  = autoReduce . groebnerBasis . map (withOrder (Graded RevLex))
+                => [Polynomial f v o] -> [Polynomial f v DegRevLex]
+        calcGrevlex  = autoReduce . groebnerBasis . map (withOrder DegRevLex)
         calcLex :: (PolynomialConstraint (Polynomial f v o))
                 => [Polynomial f v o] -> [Polynomial f v Lex]
         calcLex      = autoReduce . groebnerBasis . map (withOrder Lex)

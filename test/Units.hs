@@ -55,7 +55,7 @@ root4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"]
       = HU.assertBool "" (equiv basis expected)
       where
         basis = map (withOrder Lex) $ autoReduce $ groebnerBasis
-                  $ map (withOrder (Graded RevLex)) $ root vs
+                  $ map (withOrder DegRevLex) $ root vs
         expected = [ x1 + x2 + x3 + x4
                    , x2^2 + x2*x3 + x3^2 + x2*x4 + x3*x4 + x4^2
                    , x3^3 + x3^2*x4 + x3*x4^2 + x4^3
@@ -84,7 +84,7 @@ cyclic4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4
       = HU.assertBool "" (equiv basis expected)
       where
         basis = map (withOrder Lex) $ autoReduce $ groebnerBasis
-                  $ map (withOrder (Graded RevLex)) $ cyclic vs
+                  $ map (withOrder DegRevLex) $ cyclic vs
         expected = [ x1 + x2 + x3 + x4
                    , x2^2 + 2*x2*x4 + x4^2
                    , x2*x3^2 + x3^2*x4 - x2*x4^2 - x4^3
@@ -122,7 +122,7 @@ katsura4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x
       = HU.assertBool "" (equiv basis expected)
       where
         basis = map (withOrder Lex) $ autoReduce $ groebnerBasis
-                  $ map (withOrder (Graded RevLex)) $ katsura vs
+                  $ map (withOrder DegRevLex) $ katsura vs
         expected = [ x1 + 2 %% 1*x2 + 2 %% 1*x3 + 2 %% 1*x4 - 1 %% 1
                    , x2^2 + 2 %% 1*x2*x4 + 8 %% 7*x3*x4 + 12 %% 7*x4^2 - 2 %% 7*x2 - 1 %% 7*x3 - 4 %% 7*x4
                    , x2*x3 - 2 %% 1*x2*x4 - 23 %% 7*x3*x4 - 24 %% 7*x4^2 + 1 %% 14*x2 + 2 %% 7*x3
