@@ -72,10 +72,14 @@ instance MonomialOrder order => MonomialOrder (Graded order) where
   monoCompare (Graded order) l r = (VS.sum l `compare` VS.sum r) <> monoCompare order l r
 
 
--- | Degree lexicographic ordering.
 type DegLex = Graded Lex
+
+-- | Degree lexicographic ordering.
+pattern DegLex :: DegLex
 pattern DegLex = Graded Lex
 
--- | Degree reverse lexicographic ordering.
 type DegRevLex = Graded RevLex
+
+-- | Degree reverse lexicographic ordering.
+pattern DegRevLex :: DegRevLex
 pattern DegRevLex = Graded RevLex

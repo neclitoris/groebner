@@ -7,8 +7,12 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Fields
-  ( Q
+  (
+  -- * Rational numbers
+    Q
   , (%%)
+
+  -- * Finite fields
   , GF
 
   -- * Other

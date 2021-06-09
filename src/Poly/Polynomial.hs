@@ -16,8 +16,6 @@ module Poly.Polynomial
   , Polynomial
   , IsPolynomial(..)
   , PolynomialConstraint
-
-  -- * Monomial views
   , monomials
   , leading
 
