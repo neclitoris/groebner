@@ -14,7 +14,6 @@ module Poly.Monomial.Order
   , pattern DegRevLex
   ) where
 
-import Data.Function
 import Data.Kind
 import Data.Vector.Storable ((!))
 import Data.Vector.Storable qualified as VS
@@ -60,7 +59,7 @@ data RevLex = RevLex deriving Show
 instance MonomialOrder RevLex where
   order = RevLex
 
-  monoCompare _ = (compare EQ .) . (compare `on` VS.reverse)
+  monoCompare _ l r = compare EQ $ VS.reverse l `compare` VS.reverse r
 
 
 -- | Graded ordering. First compares total degree of monomials, using
@@ -70,7 +69,7 @@ newtype Graded order = Graded order deriving Show
 instance MonomialOrder order => MonomialOrder (Graded order) where
   order = Graded order
 
-  monoCompare (Graded order) = (compare `on` VS.sum) <> monoCompare order
+  monoCompare (Graded order) l r = (VS.sum l `compare` VS.sum r) <> monoCompare order l r
 
 
 type DegLex = Graded Lex
