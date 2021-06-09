@@ -35,6 +35,8 @@ module Poly.Monomial
 
 import Control.Monad
 
+import Data.Bool
+import Data.Bifunctor
 import Data.Kind
 import Data.List qualified as L
 import Data.Maybe
@@ -163,8 +165,7 @@ prettySign m =
 
 instance (SingI v, Show f, Fractional f, Eq f)
     => PP.Pretty (Monomial f v o) where
-  pretty m = let (sign, doc) = prettySign m
-              in (if sign == LT then PP.pretty "-" else PP.emptyDoc) <> doc
+  pretty = uncurry (<>) . first (bool PP.emptyDoc (PP.pretty "-") . (==LT)) . prettySign
 
 instance PP.Pretty (Monomial f v o) => Show (Monomial f v o) where
   showsPrec _ =
