@@ -20,6 +20,7 @@ module Poly.Polynomial
   , leading
 
   -- * Other
+  , variables
   , withVariables
   ) where
 
