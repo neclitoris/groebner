@@ -7,8 +7,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Fields
-  (
-  -- * Rational numbers
+  ( -- * Rational numbers
     Q
   , (%%)
 
@@ -74,7 +73,7 @@ instance (Num (GF p), SingI p, Prime p) => Fractional (GF p) where
 assertPrimality :: Integer -> TH.Q [TH.Dec]
 assertPrimality n =
   if not (isPrime n)
-     then error $ show n ++ " is not prime"
+     then fail $ show n ++ " is not prime"
      else [d| type instance Prime $(TH.litT $ TH.numTyLit n) = () |]
     where
       isPrime n = and [ n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) [2..]]
