@@ -127,8 +127,11 @@ instance PolynomialConstraint (Polynomial field vars order)
                   (coef -> 0) -> impl xs ys
                   s           -> s : impl xs ys
 
-  (monomials -> l) * (monomials -> r) =
-    sum . map (Polynomial . (:[])) $ mulM <$> l <*> r
+  (monomials -> l) * (monomials -> r) = Polynomial
+    . map (foldr1 unsafeAddM)
+    . L.groupBy addable
+    . L.sortBy (flip compare)
+    $ mulM <$> l <*> r
 
   fromInteger 0 = Polynomial []
   fromInteger i = Polynomial [constant (fromInteger i)]

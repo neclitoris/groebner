@@ -20,6 +20,7 @@ module Poly.Monomial
   -- * Operations on monomials
   , mulM
   , addM
+  , addable
   , unsafeAddM
   , mulFM
   , LCM(..)
@@ -36,6 +37,7 @@ import Control.Monad
 
 import Data.Bool
 import Data.Bifunctor
+import Data.Function
 import Data.Kind
 import Data.List qualified as L
 import Data.Maybe
@@ -79,6 +81,9 @@ addM :: Fractional f
 addM (Monomial c1 p1) (Monomial c2 p2) = do
   guard $ p1 == p2
   pure $ Monomial (c1 + c2) p1
+
+addable :: Monomial f v o -> Monomial f v o -> Bool
+addable = (==) `on` mdPowers . mData
 
 -- | Add monomials, assuming they have equal terms.
 unsafeAddM :: Fractional f
@@ -124,8 +129,8 @@ lcm (Monomial c1 p1) (Monomial c2 p2) = LCM
 divide :: Fractional f
        => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
 divide (Monomial c1 p1) (Monomial c2 p2) = do
+  guard (V.all id $ V.zipWith (>=) p1 p2)
   let pows = V.zipWith (-) p1 p2
-  guard (V.all (>=0) pows)
   pure $ Monomial (c1 / c2) pows
 
 
