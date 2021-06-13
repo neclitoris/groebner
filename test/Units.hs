@@ -4,10 +4,8 @@ module Units
   ( units
   ) where
 
-import Test.HUnit qualified as HU
-
-import Test.Tasty qualified as Tasty
-import Test.Tasty.HUnit qualified as Tasty
+import Test.Tasty
+import Test.Tasty.HUnit
 
 import Poly.Algorithms
 import Poly.Fields
@@ -19,57 +17,57 @@ import Poly.Polynomial
 import Util
 
 
-units :: Tasty.TestTree
-units = Tasty.testGroup "units"
-  [ Tasty.testGroup "root4"
+units :: TestTree
+units = testGroup "units"
+  [ testGroup "root4"
     [ root4
     , root4grevlex
     ]
-  , Tasty.testGroup "cyclic4"
+  , testGroup "cyclic4"
     [ cyclic4
     , cyclic4grevlex
     ]
-  , Tasty.testGroup "katsura4"
+  , testGroup "katsura4"
     [ katsura4
     , katsura4grevlex
     ]
   ]
 
-root4 :: Tasty.TestTree
-root4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
+root4 :: TestTree
+root4 = testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
-      = HU.assertBool "" (equiv basis expected)
+      = basis @?= expected
       where
-        basis = autoReduce $ groebnerBasis $ root vs
-        expected = [ x1 + x2 + x3 + x4
+        basis = Equiv $ autoReduce $ groebnerBasis $ root vs
+        expected = Equiv [ x1 + x2 + x3 + x4
                    , x2^2 + x2*x3 + x2*x4 + x3^2 + x3*x4 + x4^2
                    , x3^3 + x3^2*x4 + x3*x4^2 + x4^3
                    , x4^4 - 1
                    ]
 
-root4grevlex :: Tasty.TestTree
-root4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
+root4grevlex :: TestTree
+root4grevlex = testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
-      = HU.assertBool "" (equiv basis expected)
+      = basis @?= expected
       where
-        basis = map (withOrder Lex) $ autoReduce $ groebnerBasis
+        basis = Equiv $ map (withOrder Lex) $ autoReduce $ groebnerBasis
                   $ map (withOrder DegRevLex) $ root vs
-        expected = [ x1 + x2 + x3 + x4
+        expected = Equiv [ x1 + x2 + x3 + x4
                    , x2^2 + x2*x3 + x3^2 + x2*x4 + x3*x4 + x4^2
                    , x3^3 + x3^2*x4 + x3*x4^2 + x4^3
                    , x4^4 - 1
                    ]
 
-cyclic4 :: Tasty.TestTree
-cyclic4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
+cyclic4 :: TestTree
+cyclic4 = testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
-      = HU.assertBool "" (equiv basis expected)
+      = basis @?= expected
       where
-        basis = autoReduce $ groebnerBasis $ cyclic vs
-        expected = [ x1 + x2 + x3 + x4
+        basis = Equiv $ autoReduce $ groebnerBasis $ cyclic vs
+        expected = Equiv [ x1 + x2 + x3 + x4
                    , x2^2 + 2*x2*x4 + x4^2
                    , x2*x4^4 - x2 + x4^5 - x4
                    , x3^3*x4^2 + x3^2*x4^3 - x3 - x4
@@ -77,15 +75,15 @@ cyclic4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
                    , x3^2*x4^6 - x3^2*x4^2 - x4^4 + 1
                    ]
 
-cyclic4grevlex :: Tasty.TestTree
-cyclic4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
+cyclic4grevlex :: TestTree
+cyclic4grevlex = testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
-      = HU.assertBool "" (equiv basis expected)
+      = basis @?= expected
       where
-        basis = map (withOrder Lex) $ autoReduce $ groebnerBasis
+        basis = Equiv $ map (withOrder Lex) $ autoReduce $ groebnerBasis
                   $ map (withOrder DegRevLex) $ cyclic vs
-        expected = [ x1 + x2 + x3 + x4
+        expected = Equiv [ x1 + x2 + x3 + x4
                    , x2^2 + 2*x2*x4 + x4^2
                    , x2*x3^2 + x3^2*x4 - x2*x4^2 - x4^3
                    , x2*x3*x4^2 + x3^2*x4^2 - x2*x4^3 + x3*x4^3 - x4^4 - 1
@@ -94,14 +92,14 @@ cyclic4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4
                    , x3^2*x4^4 + x2*x3 - x2*x4 + x3*x4 - 2*x4^2
                    ]
 
-katsura4 :: Tasty.TestTree
-katsura4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
+katsura4 :: TestTree
+katsura4 = testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
-      = HU.assertBool "" (equiv basis expected)
+      = basis @?= expected
       where
-        basis = autoReduce $ groebnerBasis $ katsura vs
-        expected = [ x1 - 53230079232 %% 1971025*x4^7 + 10415423232 %% 1971025*x4^6
+        basis = Equiv $ autoReduce $ groebnerBasis $ katsura vs
+        expected = Equiv [ x1 - 53230079232 %% 1971025*x4^7 + 10415423232 %% 1971025*x4^6
                      + 9146536848 %% 1971025*x4^5 - 2158574456 %% 1971025*x4^4
                      - 838935856 %% 5913075*x4^3 + 275119624 %% 5913075*x4^2 + 4884038 %% 5913075*x4
                      - 1 %% 1
@@ -115,15 +113,15 @@ katsura4 = Tasty.testCase "lex" $ withVariables ["x1", "x2", "x3", "x4"] f
                      + 1 %% 3564*x4^3 + 5 %% 42768*x4^2 - 1 %% 128304*x4
                    ]
 
-katsura4grevlex :: Tasty.TestTree
-katsura4grevlex = Tasty.testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
+katsura4grevlex :: TestTree
+katsura4grevlex = testCase "grevlex" $ withVariables ["x1", "x2", "x3", "x4"] f
   where
     f (vs@[x1, x2, x3, x4] :: [Polynomial Q v Lex])
-      = HU.assertBool "" (equiv basis expected)
+      = basis @?= expected
       where
-        basis = map (withOrder Lex) $ autoReduce $ groebnerBasis
+        basis = Equiv $ map (withOrder Lex) $ autoReduce $ groebnerBasis
                   $ map (withOrder DegRevLex) $ katsura vs
-        expected = [ x1 + 2 %% 1*x2 + 2 %% 1*x3 + 2 %% 1*x4 - 1 %% 1
+        expected = Equiv [ x1 + 2 %% 1*x2 + 2 %% 1*x3 + 2 %% 1*x4 - 1 %% 1
                    , x2^2 + 2 %% 1*x2*x4 + 8 %% 7*x3*x4 + 12 %% 7*x4^2 - 2 %% 7*x2 - 1 %% 7*x3 - 4 %% 7*x4
                    , x2*x3 - 2 %% 1*x2*x4 - 23 %% 7*x3*x4 - 24 %% 7*x4^2 + 1 %% 14*x2 + 2 %% 7*x3
                      + 8 %% 7*x4

@@ -3,11 +3,10 @@ module Poly.Algorithms
   -- * Reductions
     leadReduceBy
   , maybeLeadReduceBy
-  , fullyReduceBy
-  , maybeFullyReduceBy
-  , reduceBySet
-  , leadReduceBySet
-  , fullyReduceBySet
+  , reduceBy
+  , maybeReduceBy
+  , nfBySet
+  , leadnfBySet
 
   -- * Algorithms
   , sPolynomial
@@ -15,6 +14,7 @@ module Poly.Algorithms
   , autoReduce
   ) where
 
+import Control.Arrow
 import Control.Monad
 import Control.Monad.Trans.Cont (evalCont, reset, shift)
 
@@ -26,6 +26,7 @@ import Poly.Polynomial
 
 import Prelude hiding (lcm)
 
+import Debug.Trace
 
 -- | Lead-reduction. That is, if \(\operatorname{LM}(g) \mid \operatorname{LM}(f)\)
 -- , compute \(f - \frac{\operatorname{LM}(f)}{\operatorname{LM}(g)} \cdot g\).
@@ -40,70 +41,79 @@ maybeLeadReduceBy divisor dividend = do
   r <- divide m n
   pure $ dividend - toPolynomial r * divisor
 
--- | Lead reduction. Fails on zero divisor. If impossible to reduce, returns dividend.
+-- | Lead reduction. If impossible to reduce, returns dividend.
 leadReduceBy :: PolynomialConstraint (Polynomial f v o)
              => Polynomial f v o -- ^ Divisor
              -> Polynomial f v o -- ^ Dividend
              -> Polynomial f v o
 leadReduceBy divisor dividend = evalCont $ reset do
   m <- maybe (shift \_ -> return 0) return $ leading dividend
-  n <- maybe (shift \_ -> error "Division by zero") return $ leading divisor
+  n <- maybe (shift \_ -> return dividend) return $ leading divisor
   r <- maybe (shift \_ -> return dividend) return $ divide m n
   pure $ dividend - toPolynomial r * divisor
 
 -- | Reduction. That is, if \(\operatorname{LM}(g) \mid m\) and \(m \in f\)
 -- , compute \(f - \frac{m}{\operatorname{LM}(g)} \cdot g\).
-maybeFullyReduceBy
+maybeReduceBy
   :: PolynomialConstraint (Polynomial f v o)
   => Polynomial f v o -- ^ Divisor
   -> Polynomial f v o -- ^ Dividend
   -> Maybe (Polynomial f v o)
-maybeFullyReduceBy divisor dividend = do
+maybeReduceBy divisor dividend = do
   lead <- leading divisor
   r    <- listToMaybe $ mapMaybe (`divide` lead) (monomials dividend)
   pure $ dividend - toPolynomial r * divisor
 
--- | Reduction. Fails on zero divisor. If impossible to reduce, returns dividend.
-fullyReduceBy
+-- | Reduction. If impossible to reduce, returns dividend.
+reduceBy
   :: PolynomialConstraint (Polynomial f v o)
   => Polynomial f v o -- ^ Divisor
   -> Polynomial f v o -- ^ Dividend
   -> Polynomial f v o
-fullyReduceBy divisor dividend = dividend - r * divisor
-  where
-    lead = fromMaybe (error "Division by zero") $ leading divisor
-    r    = maybe 0 toPolynomial $ listToMaybe $ mapMaybe (`divide` lead)
-             (monomials dividend)
+reduceBy divisor dividend = evalCont $ reset do
+    lead <- maybe (shift \_ -> return divisor) return $ leading divisor
+    r    <- maybe (shift \_ -> return divisor) (return . toPolynomial)
+              $ listToMaybe $ mapMaybe (`divide` lead) (monomials dividend)
+    pure $ dividend - r * divisor
 
--- | Reduce polynomial to its normal form w.r.t. a set, that is, reduce until
--- no reduction can be performed. Uses strategy passed as the first parameter.
-reduceBySet
+nfBy :: PolynomialConstraint (Polynomial f v o)
+     => Polynomial f v o
+     -> Polynomial f v o
+     -> Polynomial f v o
+nfBy divisor = fromJust
+  . last
+  . takeWhile isJust
+  . iterate (>>= maybeReduceBy divisor)
+  . Just
+
+-- | Reduce polynomial to its normal form w.r.t. a set.
+nfBySet
   :: PolynomialConstraint (Polynomial f v o)
-  => (Polynomial f v o
-      -> Polynomial f v o
-      -> Maybe (Polynomial f v o)) -- ^ Strategy (lead/full reduction)
-  -> [Polynomial f v o]            -- ^ Set of divisors
+  => [Polynomial f v o]            -- ^ Set of divisors
   -> Polynomial f v o              -- ^ Dividend
   -> Polynomial f v o
-reduceBySet strategy divisors dividend = r
+nfBySet divisors = fst . head . dropWhile (uncurry (/=)) . iters
   where
-    r     = last $ map fromJust (takeWhile isJust forms)
-    forms = iterate (>>= go) (Just dividend)
-    go p  = listToMaybe $ mapMaybe (`strategy` p) divisors
+    iter = foldl' (flip $ (.) . nfBy) id divisors
+    iters p = let is = iterate iter p
+               in zip is (tail is)
 
 -- | Reduce polynomial to lead-normal form w.r.t. a set.
-leadReduceBySet :: PolynomialConstraint (Polynomial f v o)
-                => [Polynomial f v o] -- ^ Set of divisors
-                -> Polynomial f v o   -- ^ Dividend
-                -> Polynomial f v o
-leadReduceBySet = reduceBySet maybeLeadReduceBy
+leadnfBySet :: PolynomialConstraint (Polynomial f v o)
+            => [Polynomial f v o] -- ^ Set of divisors
+            -> Polynomial f v o   -- ^ Dividend
+            -> Polynomial f v o
+leadnfBySet divisors dividend = r
+  where
+    r     = fromJust $ last $ takeWhile isJust forms
+    forms = iterate (>>= go) (Just dividend)
+    go p  = listToMaybe $ mapMaybe (`maybeLeadReduceBy` p) divisors
 
--- | Reduce polynomial to normal form w.r.t. a set.
-fullyReduceBySet :: PolynomialConstraint (Polynomial f v o)
-                 => [Polynomial f v o] -- ^ Set of divisors
-                 -> Polynomial f v o   -- ^ Dividend
-                 -> Polynomial f v o
-fullyReduceBySet = reduceBySet maybeFullyReduceBy
+reduceSet :: PolynomialConstraint (Polynomial f v o)
+          => [Polynomial f v o]
+          -> [Polynomial f v o]
+          -> [Polynomial f v o]
+reduceSet divisors = filter (/= 0) . map (nfBySet divisors)
 
 -- | Compute s-polynomial. That is a polynomial
 -- \[
@@ -127,7 +137,9 @@ groebnerBasis :: PolynomialConstraint (Polynomial f v o)
               => [Polynomial f v o] -> [Polynomial f v o]
 groebnerBasis = fst . head . dropWhile (not . null . snd) . iters
   where
-    sPolys set new = [ s | f <- set, s <- maybeToList $ maybeSPoly f new ]
+    sPolysTwo x y = [ s | f <- x, g <- y, s <- maybeToList $ maybeSPoly f g ]
+    sPolys set = [ s | (f:gs) <- tails set, g <- gs
+                     , s <- maybeToList $ maybeSPoly f g ]
 
     maybeSPoly f g = do
       m <- leading f
@@ -137,25 +149,26 @@ groebnerBasis = fst . head . dropWhile (not . null . snd) . iters
       pure $ toPolynomial (lcmLhsMult r) * f
            - toPolynomial (lcmRhsMult r) * g
 
-    go have (n:new) =
-      case leadReduceBySet have n of
-        0 -> (have, new)
-        s -> (have ++ [fullyReduceBySet have s], new ++ sPolys have s)
-    go have []      = (have, [])
+    go have []  = (have, [])
+    go have new = let have' = autoReduce $ have ++ new
+                      sps   = (sPolysTwo have new ++ sPolys new)
+                   in (have', autoReduce $ reduceSet have' sps)
 
     iters gens = iterate (uncurry go)
-                         (gens
-                         , [ s | (f:gs) <- tails gens, g <- gs
-                           , s <- maybeToList $ maybeSPoly f g ])
+                         (gens, autoReduce $ reduceSet gens $ sPolys gens)
 
 -- | Reduce each polynomial to a normal form w.r.t. all others.
 -- Exclude zeroes.
 autoReduce :: PolynomialConstraint (Polynomial f v o)
            => [Polynomial f v o] -> [Polynomial f v o]
-autoReduce = reduceP []
+autoReduce = foldr reduceR [] . foldl' reduceL []
   where
-    reduceP before (f:after) =
-      case fullyReduceBySet (before ++ after) f of
-        0  -> reduceP before after
-        f' -> reduceP (before ++ [abs f']) after
-    reduceP before []        = before
+    reduceL before f =
+      case nfBySet before f of
+        0  -> before
+        f' -> before ++ [abs f']
+
+    reduceR f after =
+      case nfBySet after f of
+        0  -> after
+        f' -> f' : after

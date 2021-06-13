@@ -53,7 +53,7 @@ buchbergerCriterion = withTests 1000 $ property do
     let basis   = groebnerBasis $ map (withOrder DegRevLex) polys
         sPolys  = [ s | (f:gs) <- tails basis, g <- gs
                       , let s = sPolynomial f g, s /= 0]
-        reduced = map (leadReduceBySet basis) sPolys
+        reduced = map (leadnfBySet basis) sPolys
 
     annotateShow basis
     annotateShow reduced
@@ -69,7 +69,7 @@ containsOriginal = property do
     polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
 
     let basis   = groebnerBasis polys
-        reduced = map (leadReduceBySet basis) polys
+        reduced = map (leadnfBySet basis) polys
 
     annotateShow basis
     annotateShow reduced
