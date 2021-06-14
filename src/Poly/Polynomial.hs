@@ -128,6 +128,7 @@ instance PolynomialConstraint (Polynomial field vars order)
                   s           -> s : impl xs ys
 
   (monomials -> l) * (monomials -> r) = Polynomial
+    . filter ((/= 0) . coef)
     . map (foldr1 unsafeAddM)
     . L.groupBy addable
     . L.sortBy (flip compare)
