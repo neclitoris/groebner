@@ -5,8 +5,10 @@ module Poly.Algorithms
   , maybeLeadReduceBy
   , reduceBy
   , maybeReduceBy
+  , nfBy
   , nfBySet
   , leadnfBySet
+  , reduceSet
 
   -- * Algorithms
   , sPolynomial
@@ -109,6 +111,8 @@ leadnfBySet divisors dividend = r
     forms = iterate (>>= go) (Just dividend)
     go p  = listToMaybe $ mapMaybe (`maybeLeadReduceBy` p) divisors
 
+-- | Reduce set of polynomials to normal form w.r.t. a set, excluding
+-- zeroes.
 reduceSet :: PolynomialConstraint (Polynomial f v o)
           => [Polynomial f v o]
           -> [Polynomial f v o]
@@ -137,9 +141,11 @@ groebnerBasis :: PolynomialConstraint (Polynomial f v o)
               => [Polynomial f v o] -> [Polynomial f v o]
 groebnerBasis = fst . head . dropWhile (not . null . snd) . iters
   where
-    sPolysTwo x y = [ s | f <- x, g <- y, s <- maybeToList $ maybeSPoly f g ]
-    sPolys set = [ s | (f:gs) <- tails set, g <- gs
-                     , s <- maybeToList $ maybeSPoly f g ]
+    sPolysTwo x y = autoReduce $ reduceSet y $ reduceSet x
+                      [ s | f <- x, g <- y, s <- maybeToList $ maybeSPoly f g ]
+    sPolys set = autoReduce $ reduceSet set
+                   [ s | (f:gs) <- tails set, g <- gs
+                       , s <- maybeToList $ maybeSPoly f g ]
 
     maybeSPoly f g = do
       m <- leading f
@@ -151,11 +157,10 @@ groebnerBasis = fst . head . dropWhile (not . null . snd) . iters
 
     go have []  = (have, [])
     go have new = let have' = autoReduce $ have ++ new
-                      sps   = (sPolysTwo have new ++ sPolys new)
-                   in (have', autoReduce $ reduceSet have' sps)
+                   in (have', sPolys have')
 
     iters gens = iterate (uncurry go)
-                         (gens, autoReduce $ reduceSet gens $ sPolys gens)
+                         (gens, sPolys gens)
 
 -- | Reduce each polynomial to a normal form w.r.t. all others.
 -- Exclude zeroes.
@@ -171,4 +176,4 @@ autoReduce = foldr reduceR [] . foldl' reduceL []
     reduceR f after =
       case nfBySet after f of
         0  -> after
-        f' -> f' : after
+        f' -> abs f' : after
