@@ -18,18 +18,22 @@ dependencies:
 - base >= 4.7 && < 5
 - vector >= 0.12 && < 1
 - prettyprinter >= 1.7 && < 2
-- text >= 1.2 && < 2
+- text >= 2 && <3
 - transformers >= 0.5 && < 1
 - template-haskell >= 2.16 && < 3
-when:
-  - condition: impl(ghc >= 9.0)
-    then:
-      dependencies:
-        - singletons >= 3.0 && < 3.1
-        - singletons-base >= 3.0 && < 3.1
-    else:
-      dependencies:
-        - singletons >= 2.7 && < 3
+- vector-sized >= 1.4 && < 2
+- finite-typelits >= 0.1 && < 1
+- singletons >= 3.0 && < 4
+- singletons-base >= 3.0 && < 4
+
+executables:
+  groebner-repl:
+    main: Main.hs
+    source-dirs: repl
+    dependencies:
+    - groebner
+    - megaparsec >= 9 && < 10
+    - parser-combinators >= 1.2 && < 2
 
 library:
   source-dirs: src
@@ -64,3 +68,13 @@ default-extensions:
 - ImportQualifiedPost
 - BlockArguments
 - ViewPatterns
+- DataKinds
+- FlexibleContexts
+- FlexibleInstances
+- GADTs
+- MultiParamTypeClasses
+- RankNTypes
+- ScopedTypeVariables
+- TypeApplications
+- TypeFamilies
+- TypeOperators

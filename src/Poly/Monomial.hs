@@ -1,11 +1,5 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Monomial
   (
@@ -14,6 +8,7 @@ module Poly.Monomial
 
   -- * Monomial type
   , Monomial
+  , pattern Monomial
   , coef
   , powers
 
@@ -41,17 +36,20 @@ import Data.Function
 import Data.Kind
 import Data.List qualified as L
 import Data.Maybe
+import Data.Vector qualified as VV
 import Data.Vector.Unboxed qualified as V
+import Data.Vector.Generic qualified as GV
+import Data.Vector.Generic.Sized qualified as VN
 import Data.Singletons
-#if MIN_VERSION_singletons(3,0,0)
 import GHC.TypeLits.Singletons
-#endif
+import Prelude.Singletons
 
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.String qualified as PP
 
 import Poly.Monomial.Internal
 import Poly.Monomial.Order
+import Poly.Point
 import Poly.Variables
 
 import Prelude hiding (lcm)
@@ -65,18 +63,18 @@ newtype Monomial (field :: Type) (vars :: Vars) (order :: Type) =
 
 {-# COMPLETE Monomial #-}
 pattern Monomial :: f -> V.Vector Int -> Monomial f v o
-pattern Monomial coef powers  = MonomialImpl (MonomialData coef powers)
+pattern Monomial coef powers = MonomialImpl (MonomialData coef powers)
 
 coef   (Monomial c _) = c
 powers (Monomial _ p) = V.toList p
 
 -- | Multiply monomials.
-mulM :: Fractional f => Monomial f v o -> Monomial f v o -> Monomial f v o
+mulM :: Num f => Monomial f v o -> Monomial f v o -> Monomial f v o
 mulM (Monomial c1 p1) (Monomial c2 p2) =
   Monomial (c1 * c2) (V.zipWith (+) p1 p2)
 
 -- | Add monomials.
-addM :: Fractional f
+addM :: Num f
      => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
 addM (Monomial c1 p1) (Monomial c2 p2) = do
   guard $ p1 == p2
@@ -86,16 +84,16 @@ addable :: Monomial f v o -> Monomial f v o -> Bool
 addable = (==) `on` mdPowers . mData
 
 -- | Add monomials, assuming they have equal terms.
-unsafeAddM :: Fractional f
+unsafeAddM :: Num f
            => Monomial f v o -> Monomial f v o -> Monomial f v o
 unsafeAddM (Monomial c1 p) (Monomial c2 _) = Monomial (c1 + c2) p
 
 -- | Multiply monomial by a constant.
-mulFM :: Fractional f => f -> Monomial f v o -> Monomial f v o
+mulFM :: Num f => f -> Monomial f v o -> Monomial f v o
 mulFM x (Monomial coef powers) = Monomial (x * coef) powers
 
 -- | Constant monomial.
-constant :: forall f o v. (Fractional f, SingI v) => f -> Monomial f v o
+constant :: forall f o v. SingI v => f -> Monomial f v o
 constant f = Monomial f (V.replicate l 0)
     where
       l = length $ fromSing (sing :: Sing v)
@@ -108,6 +106,11 @@ variables = map (Monomial 1) pows
     len  = length $ fromSing (sing @v)
     pows = map (\i -> V.generate len (\j -> if i == j + 1 then 1 else 0)) [1..len]
 
+instance (Num f, Point p, SingI v, Field p ~ f, Dimension p ~ Length v)
+    => EvaluateAt (Monomial f v o) p where
+  Monomial c p @. v =
+    withKnownNat (sLength (sing @v)) $
+      c * VV.product (VV.zipWith (^) (asVector v) (GV.convert p))
 
 data LCM f v o = LCM
   { lcmLhsMult :: Monomial f v o
@@ -117,7 +120,7 @@ data LCM f v o = LCM
   deriving Show
 
 -- | Compute least common multiple of two monomials.
-lcm :: Fractional f => Monomial f v o -> Monomial f v o -> LCM f v o
+lcm :: Num f => Monomial f v o -> Monomial f v o -> LCM f v o
 lcm (Monomial c1 p1) (Monomial c2 p2) = LCM
   (Monomial c2 (V.zipWith (-) res p1))
   (Monomial c1 (V.zipWith (-) res p2))
@@ -134,7 +137,7 @@ divide (Monomial c1 p1) (Monomial c2 p2) = do
   pure $ Monomial (c1 / c2) pows
 
 
-prettySign :: forall f v o ann . (SingI v, Show f, Fractional f, Eq f)
+prettySign :: forall f v o ann . (SingI v, Show f, Num f, Eq f)
            => Monomial f v o -> (Ordering, PP.Doc ann)
 prettySign m =
   (sign, c <> L.foldl' (<>) PP.emptyDoc (L.intersperse (PP.pretty "*") vars))
@@ -156,7 +159,7 @@ prettySign m =
             (1, _)    -> PP.emptyDoc
             (x, _)    -> prettyAbs x <> PP.pretty "*"
 
-instance (SingI v, Show f, Fractional f, Eq f)
+instance (SingI v, Show f, Num f, Eq f)
     => PP.Pretty (Monomial f v o) where
   pretty = uncurry (<>) . first (bool PP.emptyDoc (PP.pretty "-") . (==LT)) . prettySign
 
