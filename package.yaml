@@ -25,6 +25,9 @@ dependencies:
 - finite-typelits >= 0.1 && < 1
 - singletons >= 3.0 && < 4
 - singletons-base >= 3.0 && < 4
+- unordered-containers >= 0.2 && < 1
+- polysemy >= 1.7 && < 2
+- haskeline >= 0.8 && < 1
 
 executables:
   groebner-repl:
@@ -67,8 +70,10 @@ benchmarks:
 default-extensions:
 - ImportQualifiedPost
 - BlockArguments
+- LambdaCase
 - ViewPatterns
 - DataKinds
+- PolyKinds
 - FlexibleContexts
 - FlexibleInstances
 - GADTs

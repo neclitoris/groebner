@@ -13,6 +13,7 @@ module Poly.Monomial
   , powers
 
   -- * Operations on monomials
+  , weaken
   , mulM
   , addM
   , addable
@@ -50,7 +51,8 @@ import Prettyprinter.Render.String qualified as PP
 import Poly.Monomial.Internal
 import Poly.Monomial.Order
 import Poly.Point
-import Poly.Variables
+import Poly.Variables hiding ( weaken, common )
+import Poly.Variables qualified as PV
 
 import Prelude hiding (lcm)
 
@@ -67,6 +69,14 @@ pattern Monomial coef powers = MonomialImpl (MonomialData coef powers)
 
 coef   (Monomial c _) = c
 powers (Monomial _ p) = V.toList p
+
+weaken :: forall v2 v1 f o . (Subset v1 v2, SingI v1, SingI v2)
+       => Monomial f v1 o
+       -> Monomial f v2 o
+weaken (Monomial c p) = Monomial c (V.update zeros upds)
+  where
+    zeros = V.replicate (length (demote @v2)) 0
+    upds  = V.zip (V.fromList $ PV.weaken (sing @v1) (sing @v2)) p
 
 -- | Multiply monomials.
 mulM :: Num f => Monomial f v o -> Monomial f v o -> Monomial f v o
@@ -96,7 +106,7 @@ mulFM x (Monomial coef powers) = Monomial (x * coef) powers
 constant :: forall f o v. SingI v => f -> Monomial f v o
 constant f = Monomial f (V.replicate l 0)
     where
-      l = length $ fromSing (sing :: Sing v)
+      l = length $ (demote @v)
 
 -- | List of monomials that represent individual variables, in lexicographic
 -- order.

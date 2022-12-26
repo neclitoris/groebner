@@ -16,6 +16,8 @@ module Poly.Polynomial
   , leading
 
   -- * Other
+  , weaken
+  , weaken2
   , variables
   , withVariables
   , mapField
@@ -24,6 +26,7 @@ module Poly.Polynomial
 
 import Data.Kind
 import Data.List qualified as L
+import Data.List.Singletons
 import Data.Maybe
 import Data.Singletons
 import GHC.TypeLits.Singletons
@@ -33,10 +36,11 @@ import Prettyprinter ((<+>))
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.String qualified as PP
 
-import Poly.Monomial hiding ( variables )
-import Poly.Monomial qualified as M ( variables )
+import Poly.Monomial hiding ( variables, weaken )
+import Poly.Monomial qualified as M ( variables, weaken )
 import Poly.Point
-import Poly.Variables
+import Poly.Variables hiding (weaken)
+import Poly.Variables qualified as PV (weaken)
 
 
 -- | Type that represents polynomials. Parametrized by field of coefficients,
@@ -71,6 +75,23 @@ instance (Num f, Eq f, SingI v)
 instance IsPolynomial f v o (Polynomial f v o) where
   toPolynomial = id
 
+weaken :: forall v2 v1 f o . (Subset v1 v2, SingI v1, SingI v2, Eq f, MonomialOrder o)
+       => Polynomial f v1 o
+       -> Polynomial f v2 o
+weaken (monomials -> m) = Polynomial $ L.sortBy (flip compare) (map M.weaken m)
+
+weaken2 :: forall v1 v2 f o . (SingI v1, SingI v2, Eq f, MonomialOrder o)
+        => Polynomial f v1 o
+        -> Polynomial f v2 o
+        -> (Polynomial f (Union v1 v2) o, Polynomial f (Union v1 v2) o)
+weaken2 p1 p2 = let v1 = sing @v1
+                    v2 = sing @v2
+                    un = sUnion (sing @v1) (sing @v2)
+                 in fromJust . fromJust $
+                      withSingI un $
+                      ifSubset v1 un $
+                      ifSubset v2 un (weaken p1, weaken p2)
+
 -- | List of polynomials that represent individual variables, in lexicographic
 -- order.
 variables :: forall v f . (Num f, SingI v)
@@ -101,8 +122,8 @@ mapField f (monomials -> m) =
   Polynomial $ map (\(Monomial c p) -> Monomial (f c) p) m
 
 -- | Lift polynomial to accept polynomial arguments.
-lift :: (Num f, Eq f, SingI v)
-     => Polynomial f v o -> Polynomial (Polynomial f v o) v o
+lift :: (Num f, Eq f, SingI v, SingI v')
+     => Polynomial f v o -> Polynomial (Polynomial f v' o) v o
 lift = mapField toPolynomial
 
 
