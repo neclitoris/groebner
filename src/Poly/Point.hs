@@ -28,6 +28,7 @@ instance VG.Vector vec f => Point (VN.Vector vec n f) where
 asVector :: (KnownNat (Dimension p), Point p, VG.Vector v (Field p)) => p -> v (Field p)
 asVector p = VG.convert $ V.map (p `at`) $ V.fromList [0..]
 
+infix 8 @.
 class Point t => EvaluateAt p t where
   (@.) :: p -> t -> Field t
 
