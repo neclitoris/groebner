@@ -28,6 +28,7 @@ library
       Poly.Point
       Poly.Polynomial
       Poly.Primes
+      Poly.Rational
       Poly.Variables
   other-modules:
       Paths_groebner
