@@ -24,9 +24,11 @@ runCommand (Run stmt) = do
   repl
 runCommand (Do Quit)     = return ()
 runCommand (Do ShowHelp) = do
+  printLine "\t:order Lex|RevLex|DegLex|DegRevLex\tchange monomial order"
   printLine "\t:help\tshow this message"
   printLine "\t:quit\tquit"
   repl
+runCommand (Do (SwitchOrder ord)) = modify (\(Ctx vars _) -> Ctx vars (WrappedOrder ord)) >> repl
 
 repl :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Sem r ()
 repl = do

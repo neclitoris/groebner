@@ -3,6 +3,7 @@ module Syntax where
 
 import Data.Bifunctor
 import Data.HashSet qualified as HS
+import Data.List
 import Data.Void
 
 import Control.Applicative (empty)
@@ -15,6 +16,7 @@ import Text.Megaparsec.Char.Lexer qualified as MPC
 import Text.Megaparsec.Error qualified as MPC
 
 import Poly.Polynomial
+import Poly.Monomial.Order
 import Poly.Variables
 
 
@@ -37,7 +39,10 @@ data Stmt
   = Assign String [String] Expr
   | Eval Expr
 
-data Action = Quit | ShowHelp
+data Action where
+  Quit :: Action
+  ShowHelp :: Action
+  SwitchOrder :: forall o. MonomialOrder o => o -> Action
 
 data Command
   = Run Stmt
@@ -92,6 +97,7 @@ term = MPC.label "term" $ MPC.choice
   ]
 
 symbol = MPC.symbol space
+shortSymbol s = MPC.choice $ map (MPC.try . symbol) $ (reverse $ tail $ inits s)
 name = (:) <$> MPC.letterChar <*> many MPC.alphaNumChar <* space <?> "name"
 int = MPC.decimal <* space <?> "int"
 number = MPC.choice
@@ -102,8 +108,18 @@ space = MPC.space MPC.space1 empty empty
 parens = between (symbol "(") (symbol ")")
 brackets = between (symbol "[") (symbol "]")
 
-command = Run <$> stmt <|> Do Quit <$ symbol ":quit" <|> Do ShowHelp <$ symbol ":help"
-
+command = MPC.try $ Run <$> stmt <|>
+  MPC.string ":" *> MPC.choice
+  [ Do Quit <$ shortSymbol "quit"
+  , Do ShowHelp <$ shortSymbol "help"
+  , (\a -> Do a) <$> (shortSymbol "order" *>
+    MPC.choice
+      [ MPC.string' "Lex" *> pure (SwitchOrder Lex)
+      , MPC.string' "RevLex" *> pure (SwitchOrder RevLex)
+      , MPC.string' "DegLex" *> pure (SwitchOrder DegLex)
+      , MPC.string' "DegRevLex" *> pure (SwitchOrder DegRevLex)
+      ])
+  , pure (Do ShowHelp)]
 parseStmt = bimap MPC.errorBundlePretty id . MPC.runParser stmt ""
 parseCommand = bimap MPC.errorBundlePretty id . MPC.runParser command ""
 
@@ -112,6 +128,6 @@ freeVars :: Expr -> HS.HashSet String
 freeVars (Const _)  = HS.empty
 freeVars (Var s)    = HS.singleton s
 freeVars (App a bs) = HS.unions (freeVars a : map freeVars bs)
-freeVars (Binop _ a b)  = HS.union (freeVars a) (freeVars b)
+freeVars (Binop _ a b) = HS.union (freeVars a) (freeVars b)
 freeVars (Neg a)    = freeVars a
 freeVars (Pow a _)  = freeVars a

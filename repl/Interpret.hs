@@ -89,10 +89,10 @@ interpretExpr (App f as) = do
         exps'
     RBuiltin "GroebnerBasis" -> do
       exps' <- onlyPolys "GroebnerBasis" exps
-      return $ RList $ applyList (map WrappedPolynomial . groebnerBasis) exps'
+      return $ RList $ applyList (map WrappedPolynomial . map (withOrder Lex) . groebnerBasis . map (withOrder ord)) exps'
     RBuiltin "Autoreduce" -> do
       exps' <- onlyPolys "Autoreduce" exps
-      return $ RList $ applyList (map WrappedPolynomial . autoReduce) exps'
+      return $ RList $ applyList (map WrappedPolynomial . map (withOrder Lex) . autoReduce .  map (withOrder ord)) exps'
     RPoly (WrappedPolynomial (p :: Polynomial Double v Lex)) -> do
       exps' <- onlyPolys "variable substitution" exps
       applyList
