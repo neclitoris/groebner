@@ -157,5 +157,5 @@ autoReduce = reduceP []
     reduceP before (f:after) =
       case fullyReduceBySet (before ++ after) f of
         0  -> reduceP before after
-        f' -> reduceP (before ++ [abs f']) after
+        f' -> reduceP (before ++ [normalize f']) after
     reduceP before []        = before

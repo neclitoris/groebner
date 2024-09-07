@@ -14,6 +14,7 @@ module Poly.Polynomial
   , PolynomialConstraint
   , monomials
   , leading
+  , normalize
 
   -- * Other
   , weaken
@@ -146,8 +147,6 @@ instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
--- | `abs` normalizes the polynomial, `signum` returns the leading
--- coefficient. This behavior satisfies `Num` laws.
 instance (Num field, Eq field, SingI vars, MonomialOrder order)
     => Num (Polynomial field vars order) where
   (monomials -> l) + (monomials -> r) =
@@ -177,6 +176,10 @@ instance (Num field, Eq field, SingI vars, MonomialOrder order)
   abs = id
 
   signum _ = toPolynomial (1 :: field)
+
+normalize :: PolynomialConstraint (Polynomial f v o)
+          => Polynomial f v o -> Polynomial f v o
+normalize = Polynomial . (\l -> map (mulFM (1 / coef (head l))) l) . monomials
 
 instance (Ordered (Monomial f v o), Eq f) => Ordered (Polynomial f v o) where
   type WithOrder (Polynomial f v o) = Polynomial f v
