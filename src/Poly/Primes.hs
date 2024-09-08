@@ -8,4 +8,4 @@ import Language.Haskell.TH
 
 import Poly.Fields
 
-$(join <$> mapM (recover (pure []) . assertPrimality) [2..127])
+$(genPrimes 100000)

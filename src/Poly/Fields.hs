@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -16,12 +17,16 @@ module Poly.Fields
 
   -- * Other
   , assertPrimality
+  , primes
+  , genPrimes
   ) where
 
 import Control.Monad
+import Data.Constraint
 import Data.Kind
 import Data.Ratio
 import Data.Singletons
+import Data.Traversable
 import GHC.Natural
 import GHC.TypeLits
 import Language.Haskell.TH qualified as TH
@@ -77,6 +82,15 @@ assertPrimality n =
      else [d| type instance Prime $(TH.litT $ TH.numTyLit n) = () |]
     where
       isPrime n = and [ n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) [2..]]
+
+primes :: [Integer]
+primes = 2 : filter isPrime [3..]
+  where
+    isPrime n = and [n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) primes]
+
+genPrimes :: Integer -> TH.Q [TH.Dec]
+genPrimes n = join <$> for (takeWhile (<=n) primes)
+    (\p -> [d| type instance Prime $(TH.litT $ TH.numTyLit p) = () |])
 
 data GCDEx =
   GCDEx { gcdLhsCoef :: Integer
