@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -53,9 +53,8 @@ library
   ghc-options: -Wincomplete-patterns
   build-depends:
       base >=4.7 && <5
+    , constraints >=0.14 && <1
     , finite-typelits >=0.1 && <1
-    , haskeline >=0.8 && <1
-    , polysemy >=1.7 && <2
     , prettyprinter >=1.7 && <2
     , singletons >=3.0 && <4
     , singletons-base >=3.0 && <4
@@ -94,6 +93,7 @@ executable groebner-repl
       TypeOperators
   build-depends:
       base >=4.7 && <5
+    , constraints >=0.14 && <1
     , finite-typelits >=0.1 && <1
     , groebner
     , haskeline >=0.8 && <1
@@ -141,11 +141,10 @@ test-suite groebner-test
   build-depends:
       HUnit >=1.6 && <2
     , base >=4.7 && <5
+    , constraints >=0.14 && <1
     , finite-typelits >=0.1 && <1
     , groebner
-    , haskeline >=0.8 && <1
     , hedgehog ==1.*
-    , polysemy >=1.7 && <2
     , prettyprinter >=1.7 && <2
     , singletons >=3.0 && <4
     , singletons-base >=3.0 && <4
@@ -186,11 +185,10 @@ benchmark groebner-bench
   ghc-options: -rtsopts
   build-depends:
       base >=4.7 && <5
+    , constraints >=0.14 && <1
     , criterion >=1.5 && <2
     , finite-typelits >=0.1 && <1
     , groebner
-    , haskeline >=0.8 && <1
-    , polysemy >=1.7 && <2
     , prettyprinter >=1.7 && <2
     , singletons >=3.0 && <4
     , singletons-base >=3.0 && <4

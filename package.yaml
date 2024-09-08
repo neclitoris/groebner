@@ -26,8 +26,7 @@ dependencies:
 - singletons >= 3.0 && < 4
 - singletons-base >= 3.0 && < 4
 - unordered-containers >= 0.2 && < 1
-- polysemy >= 1.7 && < 2
-- haskeline >= 0.8 && < 1
+- constraints >= 0.14 && < 1
 
 executables:
   groebner-repl:
@@ -35,6 +34,8 @@ executables:
     source-dirs: repl
     dependencies:
     - groebner
+    - polysemy >= 1.7 && < 2
+    - haskeline >= 0.8 && < 1
     - megaparsec >= 9 && < 10
     - parser-combinators >= 1.2 && < 2
 
