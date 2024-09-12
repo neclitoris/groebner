@@ -8,26 +8,25 @@ import Poly.Polynomial
 import Poly.Monomial.Order
 
 
-data WrappedPolynomial where
-  WrappedPolynomial :: SingI v => Polynomial Double v Lex -> WrappedPolynomial
+data Value o where
+  Value :: PolynomialConstraint (Polynomial Double v o)
+        => Polynomial Double v o -> Value o
 
-data WrappedOrder where
-  WrappedOrder :: MonomialOrder o => o -> WrappedOrder
+instance MonomialOrder o => Ordered (Value o) where
+  type Order (Value o) = o
+  type WithOrder (Value o) = Value
+  withOrder o (Value p) = Value (withOrder o p)
 
-data Value = Poly WrappedPolynomial | Builtin
-data RetValue = RPoly WrappedPolynomial | RList [WrappedPolynomial] | RBuiltin String
+data Ctx where
+  Ctx :: forall o . MonomialOrder o => o -> HashMap String (Value o) -> Ctx
 
-data Ctx = Ctx { ctxVars :: HashMap String Value
-               , ctxOrder :: WrappedOrder }
+defaultCtx = Ctx Lex empty
 
-defaultCtx = Ctx { ctxVars = fromList $ zip l (replicate (length l) Builtin)
-                 , ctxOrder = WrappedOrder Lex
-                 }
-  where
-    l = ["S", "GroebnerBasis", "Autoreduce"]
+updateCtx :: MonomialOrder o => HashMap String (Value o) -> Ctx -> Ctx
+updateCtx h (Ctx o v) = Ctx o (fmap (withOrder o) h `union` v)
 
-updateCtx :: HashMap String Value -> Ctx -> Ctx
-updateCtx h (Ctx v o) = Ctx (union h v) o
+updateCtxNoShadow :: MonomialOrder o => HashMap String (Value o) -> Ctx -> Ctx
+updateCtxNoShadow h (Ctx o v) = Ctx o (v `union` fmap (withOrder o) h)
 
-updateCtxNoShadow :: HashMap String Value -> Ctx -> Ctx
-updateCtxNoShadow h (Ctx v o) = Ctx (union v h) o
+switchOrder :: MonomialOrder o => o -> Ctx -> Ctx
+switchOrder o (Ctx _ v) = Ctx o (fmap (withOrder o) v)

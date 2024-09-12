@@ -17,10 +17,7 @@ printLine a = embedFinal $ outputStrLn @IO $ a
 
 runCommand :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Command -> Sem r ()
 runCommand (Run stmt) = do
-  interpretStmt stmt >>= \case
-    Just (RPoly (WrappedPolynomial p)) -> printLine $ show p
-    Just (RList l) -> applyList (\l -> printLine $ show l) l
-    Nothing -> return ()
+  interpretStmt stmt >>= maybe (return ()) printLine
   repl
 runCommand (Do Quit)     = return ()
 runCommand (Do ShowHelp) = do
@@ -28,7 +25,7 @@ runCommand (Do ShowHelp) = do
   printLine "\t:help\tshow this message"
   printLine "\t:quit\tquit"
   repl
-runCommand (Do (SwitchOrder ord)) = modify (\(Ctx vars _) -> Ctx vars (WrappedOrder ord)) >> repl
+runCommand (Do (SwitchOrder ord)) = modify (switchOrder ord) >> repl
 
 repl :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Sem r ()
 repl = do

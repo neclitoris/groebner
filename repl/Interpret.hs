@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Interpret where
 
 import Control.Monad
@@ -40,116 +41,101 @@ import Syntax
   -- | App Expr [Expr]
   -- deriving (Show)
 
-applyList :: (forall v . SingI v => [Polynomial Double v Lex] -> r) -> [WrappedPolynomial] -> r
+applyList :: MonomialOrder o
+          => (forall v . SingI v => [Polynomial Double v o] -> r) -> [Value o] -> r
 applyList f l = case un of SomeSing sun -> withSingI sun $ f (map (wkn sun) l)
   where
-    getSing = \(WrappedPolynomial (p :: Polynomial Double v Lex)) -> SomeSing (sing @v)
+    getSing = \(Value (p :: Polynomial Double v o)) -> SomeSing (sing @v)
     sings = map getSing l
     un = foldr (\(SomeSing v1) (SomeSing v2) -> SomeSing (v1 `sUnion` v2))
                (SomeSing (sing @'[]))
                sings
-    wkn :: forall (v' :: Vars) . Sing v'
-        -> WrappedPolynomial
-        -> Polynomial Double v' Lex
-    wkn sun (WrappedPolynomial (p :: Polynomial Double v Lex)) =
+    wkn :: forall (v' :: Vars) o . MonomialOrder o
+        => Sing v'
+        -> Value o
+        -> Polynomial Double v' o
+    wkn sun (Value (p :: Polynomial Double v o)) =
       case sing @v of
         s -> fromJust $ ifSubset s sun $ withSingI sun $ weaken @v' p
 
-onlyPoly :: Member (Error String) r => String -> RetValue -> Sem r WrappedPolynomial
-onlyPoly s (RPoly w) = return w
-onlyPoly s _         = throw $ "Expected polynomial argument for " <> s
-
-onlyPolys :: Member (Error String) r => String -> [RetValue] -> Sem r [WrappedPolynomial]
-onlyPolys s = mapM (onlyPoly s)
-
-interpretExpr :: Members '[State Ctx, Error String] r => Expr -> Sem r RetValue
+interpretExpr :: forall o r . (MonomialOrder o, Members '[State Ctx, Error String] r)
+              => Expr -> Sem r (Value o)
 interpretExpr (Const v) =
-  return $ RPoly (WrappedPolynomial (toPolynomial v :: Polynomial Double '[] Lex))
+  return $ Value (toPolynomial v :: Polynomial Double '[] o)
 interpretExpr (Var v)   = do
-  ctx <- gets ctxVars
+  Ctx ord ctx <- get
   case M.lookup v ctx of
     Nothing       -> throw $ "Undefined variable: " <> v
-    Just (Poly w) -> return $ RPoly w
-    Just Builtin  -> return $ RBuiltin v
+    Just (Value w) -> return $ withOrder order $ Value w
 interpretExpr (App f as) = do
-  ctx <- gets ctxVars
-  WrappedOrder ord <- gets ctxOrder
-  exps <- mapM interpretExpr as
+  Ctx ord ctx <- get
+  exps <- mapM (interpretExpr @o) as
   v <- interpretExpr f
   case v of
-    RBuiltin "S" -> do
-      exps' <- onlyPolys "S" exps
-      applyList
-        (\case
-          [p1, p2] ->
-            return $ RPoly $ WrappedPolynomial $
-              withOrder Lex $ sPolynomial (withOrder ord p1) (withOrder ord p2)
-          _ -> throw "'S' only accepts 2 arguments"
-        )
-        exps'
-    RBuiltin "GroebnerBasis" -> do
-      exps' <- onlyPolys "GroebnerBasis" exps
-      return $ RList $ applyList (map WrappedPolynomial . map (withOrder Lex) . groebnerBasis . map (withOrder ord)) exps'
-    RBuiltin "Autoreduce" -> do
-      exps' <- onlyPolys "Autoreduce" exps
-      return $ RList $ applyList (map WrappedPolynomial . map (withOrder Lex) . autoReduce .  map (withOrder ord)) exps'
-    RPoly (WrappedPolynomial (p :: Polynomial Double v Lex)) -> do
-      exps' <- onlyPolys "variable substitution" exps
+    Value (p :: Polynomial Double v o) -> do
       applyList
         (\case
           (V.fromList ->
-            VN.SomeSized (v :: VN.Vector n (Polynomial Double v1 Lex))) ->
+            VN.SomeSized (v :: VN.Vector n (Polynomial Double v1 o))) ->
               case sing @n %~ sLength (sing @v) of
-                Proved Refl -> return $ RPoly $ WrappedPolynomial $ lift p @. v
+                Proved Refl -> return $ Value $ lift p @. v
                 Disproved _ ->
                   throw "Invalid number of arguments in variable substitution"
         )
-        exps'
-    _ -> throw ("Lists can only exist on top level")
+        exps
 interpretExpr (Binop op e1 e2) = do
   lhs <- interpretExpr e1
   rhs <- interpretExpr e2
-  case (lhs, rhs) of
-    (RPoly p1, RPoly p2) -> applyList
-      (\[p1, p2] -> return $ RPoly $ WrappedPolynomial $ p1 `op` p2)
-      [p1, p2]
-    _ -> throw "Arithmetic operations are defined for polynomials only"
+  applyList (\[x, y] -> return $ Value $ x `op` y) [lhs, rhs]
 interpretExpr (Neg e) = do
-  p <- interpretExpr e
-  case p of
-    RPoly p  -> applyList
-      (\[p] -> return $ RPoly $ WrappedPolynomial $ (-p))
-      [p]
-    _ -> throw "Arithmetic operations are defined for polynomials only"
+  Value p <- interpretExpr e
+  return $ Value (-p)
 interpretExpr (Pow e n) = do
-  lhs <- interpretExpr e
-  case lhs of
-    RPoly p -> applyList
-      (\[p] -> return $ RPoly $ WrappedPolynomial $ p^n)
-      [p]
-    _ -> throw "Arithmetic operations are defined for polynomials only"
+  Value lhs <- interpretExpr e
+  return $ Value (lhs^n)
 
 interpretStmt :: Members '[State Ctx, Error String] r
-              => Stmt -> Sem r (Maybe RetValue)
+              => Stmt -> Sem r (Maybe String)
 interpretStmt (Assign name args expr) = do
-  (st :: Ctx) <- get
+  st@(Ctx (o :: o) _) <- get
   when (nub args /= args) $ throw "Variable names must be distinct"
   let upd = withVariables (map T.pack args)
-              (\vs -> M.fromList $ zip args (map (Poly . WrappedPolynomial) vs))
+              (\vs -> M.fromList $ zip args (map Value vs))
   modify (updateCtx upd)
-  res <- interpretExpr expr
+  res <- interpretExpr @o expr
   put st
-  case res of
-    RPoly w -> modify (updateCtx (M.singleton name (Poly w)))
-    _       -> throw "Can't assign list value to a variable"
+  modify (updateCtx (M.singleton name res))
   return Nothing
+interpretStmt (AppBuiltin "S" exps) = do
+  st@(Ctx (o :: o) _) <- get
+  res <- mapM (interpretExpr @o) exps
+  put st
+  return $ applyList
+             (\case
+               [x, y] -> Just $ show $ sPolynomial x y
+               _ -> Just "Error: 'S' only accepts two arguments"
+             )
+             res
+interpretStmt (AppBuiltin "GroebnerBasis" exps) = do
+  st@(Ctx (o :: o) _) <- get
+  res <- mapM (interpretExpr @o) exps
+  put st
+  return $ applyList
+             (\l -> Just $ show $ groebnerBasis l)
+             res
+interpretStmt (AppBuiltin "AutoReduce" exps) = do
+  st@(Ctx (o :: o) _) <- get
+  res <- mapM (interpretExpr @o) exps
+  put st
+  return $ applyList
+             (\l -> Just $ show $ autoReduce l)
+             res
 interpretStmt (Eval expr) = do
-  (st :: Ctx) <- get
+  st@(Ctx (o :: o) _) <- get
   let fv = S.toList $ freeVars expr
   let upd = withVariables (map T.pack fv)
-              (\vs -> M.fromList $ zip fv (map (Poly . WrappedPolynomial) vs))
+              (\vs -> M.fromList $ zip fv (map Value vs))
   modify (updateCtxNoShadow upd)
-  res <- interpretExpr expr
+  Value res <- interpretExpr @o expr
   put st
-  return (Just res)
-
+  return $ Just $ show res

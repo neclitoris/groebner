@@ -37,6 +37,7 @@ mul lhs rhs = Binop (*) lhs rhs
 
 data Stmt
   = Assign String [String] Expr
+  | AppBuiltin String [Expr]
   | Eval Expr
 
 data Action where
@@ -52,7 +53,7 @@ data Command
 type Parser = MPC.Parsec Void String
 
 stmt :: Parser Stmt
-stmt = MPC.label "statement" $ assign <|> eval
+stmt = MPC.label "statement" $ assign <|> builtin <|> eval
   where
     assign = MPC.try $ do
       (n, a) <- app name name
@@ -60,6 +61,10 @@ stmt = MPC.label "statement" $ assign <|> eval
       e <- expr
       MPC.eof
       return (Assign n a e)
+    builtin = MPC.try $ do
+      (n, a) <- app (MPC.choice $ (map symbol) ["S", "GroebnerBasis", "AutoReduce"]) expr
+      MPC.eof
+      return (AppBuiltin n a)
     eval = do
       e <- expr
       MPC.eof
