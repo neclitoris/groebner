@@ -7,9 +7,8 @@ module Poly.Monomial
     module Poly.Monomial.Order
 
   -- * Monomial type
-  , Monomial
+  , Monomial(..)
   , pattern Monomial
-  , coef
   , powers
 
   -- * Operations on monomials
@@ -48,7 +47,6 @@ import Prelude.Singletons
 import Prettyprinter qualified as PP
 import Prettyprinter.Render.String qualified as PP
 
-import Poly.Monomial.Internal
 import Poly.Monomial.Order
 import Poly.Point
 import Poly.Variables hiding ( weaken, common )
@@ -59,66 +57,73 @@ import Prelude hiding (lcm)
 
 -- | Type that represents monomials. Parametrized by field of coefficients,
 -- list of variables and monomial ordering.
-newtype Monomial (field :: Type) (vars :: Vars) (order :: Type) =
-  MonomialImpl { mData :: MonomialData field }
+-- Use `MonomialImpl` constructor if you don't mind working with vectors
+-- directly to get faster performance.
+data Monomial (field :: Type) (vars :: Vars) (order :: Type) =
+  MonomialImpl
+  { coef :: !field
+  , vPowers :: !(V.Vector Int)
+  }
   deriving (Eq)
 
-{-# COMPLETE Monomial #-}
-pattern Monomial :: f -> V.Vector Int -> Monomial f v o
-pattern Monomial coef powers = MonomialImpl (MonomialData coef powers)
+powers (MonomialImpl _ p) = V.toList p
 
-coef   (Monomial c _) = c
-powers (Monomial _ p) = V.toList p
+-- | Use this pattern if you're lazy and want to work with lists instead
+-- of vectors.
+{-# COMPLETE Monomial #-}
+pattern Monomial :: f -> [Int] -> Monomial f v o
+pattern Monomial coef powers <- MonomialImpl coef (V.toList -> powers)
+  where Monomial coef powers = MonomialImpl coef (V.fromList powers)
 
 weaken :: forall v2 v1 f o . (Subset v1 v2, SingI v1, SingI v2)
        => Monomial f v1 o
        -> Monomial f v2 o
-weaken (Monomial c p) = Monomial c (V.update zeros upds)
+weaken (MonomialImpl c p) = MonomialImpl c (V.update zeros upds)
   where
     zeros = V.replicate (length (demote @v2)) 0
     upds  = V.zip (V.fromList $ PV.weaken (sing @v1) (sing @v2)) p
 
 -- | Multiply monomials.
 mulM :: Num f => Monomial f v o -> Monomial f v o -> Monomial f v o
-mulM (Monomial c1 p1) (Monomial c2 p2) =
-  Monomial (c1 * c2) (V.zipWith (+) p1 p2)
+mulM (MonomialImpl c1 p1) (MonomialImpl c2 p2) =
+  MonomialImpl (c1 * c2) (V.zipWith (+) p1 p2)
 
 -- | Add monomials.
 addM :: Num f
      => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
-addM (Monomial c1 p1) (Monomial c2 p2) = do
+addM (MonomialImpl c1 p1) (MonomialImpl c2 p2) = do
   guard $ p1 == p2
-  pure $ Monomial (c1 + c2) p1
+  pure $ MonomialImpl (c1 + c2) p1
 
 addable :: Monomial f v o -> Monomial f v o -> Bool
-addable = (==) `on` mdPowers . mData
+addable = (==) `on` vPowers
 
 -- | Add monomials, assuming they have equal terms.
 unsafeAddM :: Num f
            => Monomial f v o -> Monomial f v o -> Monomial f v o
-unsafeAddM (Monomial c1 p) (Monomial c2 _) = Monomial (c1 + c2) p
+unsafeAddM (MonomialImpl c1 p) (MonomialImpl c2 _) = MonomialImpl (c1 + c2) p
 
 -- | Multiply monomial by a constant.
 mulFM :: Num f => f -> Monomial f v o -> Monomial f v o
-mulFM x (Monomial coef powers) = Monomial (x * coef) powers
+mulFM x (MonomialImpl coef powers) = MonomialImpl (x * coef) powers
 
 -- | Constant monomial.
 constant :: forall f o v. SingI v => f -> Monomial f v o
-constant f = Monomial f (V.replicate l 0)
+constant f = MonomialImpl f (V.replicate l 0)
     where
-      l = length $ (demote @v)
+      l = length (demote @v)
 
 -- | List of monomials that represent individual variables, in lexicographic
 -- order.
-variables :: forall v f . (Num f, SingI v) => [Monomial f v Lex]
-variables = map (Monomial 1) pows
+variables :: forall v f o . (Num f, SingI v) => [Monomial f v o]
+variables = map (MonomialImpl 1) pows
   where
     len  = length $ fromSing (sing @v)
     pows = map (\i -> V.generate len (\j -> if i == j + 1 then 1 else 0)) [1..len]
 
 instance (Num f, Point p, SingI v, Field p ~ f, Dimension p ~ Length v)
     => EvaluateAt (Monomial f v o) p where
-  Monomial c p @. v =
+  MonomialImpl c p @. v =
     withKnownNat (sLength (sing @v)) $
       c * VV.product (VV.zipWith (^) (asVector v) (GV.convert p))
 
@@ -131,20 +136,20 @@ data LCM f v o = LCM
 
 -- | Compute least common multiple of two monomials.
 lcm :: Num f => Monomial f v o -> Monomial f v o -> LCM f v o
-lcm (Monomial c1 p1) (Monomial c2 p2) = LCM
-  (Monomial c2 (V.zipWith (-) res p1))
-  (Monomial c1 (V.zipWith (-) res p2))
-  (Monomial (c1 * c2) res)
+lcm (MonomialImpl c1 p1) (MonomialImpl c2 p2) = LCM
+  (MonomialImpl c2 (V.zipWith (-) res p1))
+  (MonomialImpl c1 (V.zipWith (-) res p2))
+  (MonomialImpl (c1 * c2) res)
     where
       res = V.zipWith max p1 p2
 
 -- | Divide monomial by another, if possible.
 divide :: Fractional f
        => Monomial f v o -> Monomial f v o -> Maybe (Monomial f v o)
-divide (Monomial c1 p1) (Monomial c2 p2) = do
+divide (MonomialImpl c1 p1) (MonomialImpl c2 p2) = do
   guard (V.all id $ V.zipWith (>=) p1 p2)
   let pows = V.zipWith (-) p1 p2
-  pure $ Monomial (c1 / c2) pows
+  pure $ MonomialImpl (c1 / c2) pows
 
 
 prettySign :: forall f v o ann . (SingI v, Show f, Num f, Eq f)
@@ -178,10 +183,10 @@ instance PP.Pretty (Monomial f v o) => Show (Monomial f v o) where
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
 instance (Eq f, MonomialOrder o) => Ord (Monomial f v o) where
-  compare (Monomial _ l) (Monomial _ r) = monoCompare (order :: o) l r
+  compare (MonomialImpl _ l) (MonomialImpl _ r) = monoCompare (order :: o) l r
 
 instance MonomialOrder o => Ordered (Monomial f v o) where
   type WithOrder (Monomial f v o) = Monomial f v
   type Order     (Monomial f v o) = o
 
-  withOrder _ m = MonomialImpl $ mData m
+  withOrder _ (MonomialImpl c p) = MonomialImpl c p

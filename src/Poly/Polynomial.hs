@@ -95,8 +95,8 @@ weaken2 p1 p2 = let v1 = sing @v1
 
 -- | List of polynomials that represent individual variables, in lexicographic
 -- order.
-variables :: forall v f . (Num f, SingI v)
-          => [Polynomial f v Lex]
+variables :: forall v f o. (Num f, SingI v)
+          => [Polynomial f v o]
 variables = Polynomial . (:[]) <$> M.variables
 
 -- | Lift a list of variable names to type level, and pass list of
@@ -181,7 +181,7 @@ normalize :: PolynomialConstraint (Polynomial f v o)
           => Polynomial f v o -> Polynomial f v o
 normalize = Polynomial . (\l -> map (mulFM (1 / coef (head l))) l) . monomials
 
-instance (Ordered (Monomial f v o), Eq f) => Ordered (Polynomial f v o) where
+instance (Ordered (Monomial f v o), Eq f, MonomialOrder o) => Ordered (Polynomial f v o) where
   type WithOrder (Polynomial f v o) = Polynomial f v
   type Order     (Polynomial f v o) = o
 

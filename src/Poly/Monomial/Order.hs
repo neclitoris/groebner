@@ -13,6 +13,7 @@ module Poly.Monomial.Order
   , pattern DegLex
   , DegRevLex
   , pattern DegRevLex
+  , Elim(..)
   ) where
 
 import Data.Kind

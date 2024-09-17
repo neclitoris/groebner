@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Poly.Algorithms
   (
   -- * Reductions
@@ -13,18 +14,26 @@ module Poly.Algorithms
   , sPolynomial
   , groebnerBasis
   , autoReduce
+  , gcd
   ) where
 
 import Control.Monad
 import Control.Monad.Trans.Cont (evalCont, reset, shift)
 
 import Data.Maybe
+import Data.Function
 import Data.List
+import Data.List.Singletons
+import Data.Singletons
+import GHC.TypeLits
 
-import Poly.Monomial
+import Debug.Trace
+
+import Poly.Monomial hiding (variables)
 import Poly.Polynomial
 
-import Prelude hiding (lcm)
+
+import Prelude hiding (div, gcd, lcm)
 
 
 -- | Lead-reduction. That is, if \(\operatorname{LM}(g) \mid \operatorname{LM}(f)\)
@@ -105,6 +114,18 @@ fullyReduceBySet :: PolynomialConstraint (Polynomial f v o)
                  -> Polynomial f v o
 fullyReduceBySet = reduceBySet maybeFullyReduceBy
 
+div :: PolynomialConstraint (Polynomial f v o)
+    => Polynomial f v o
+    -> Polynomial f v o
+    -> Polynomial f v o
+div dividend divisor
+  | r == 0 = 0
+  | otherwise = r + div (dividend - r * divisor) divisor
+  where
+    lead = fromMaybe (error "Division by zero") $ leading divisor
+    r    = maybe 0 toPolynomial $ listToMaybe $ mapMaybe (`divide` lead)
+             (monomials dividend)
+
 -- | Compute s-polynomial. That is a polynomial
 -- \[
 --  \operatorname{lc}(g)\frac{\operatorname{lcm}(\operatorname{lm}(f),
@@ -159,3 +180,34 @@ autoReduce = reduceP []
         0  -> reduceP before after
         f' -> reduceP (before ++ [normalize f']) after
     reduceP before []        = before
+
+gcdUni :: (PolynomialConstraint (Polynomial f v o), v ~ '[x])
+       => [Polynomial f v o] -> Polynomial f v o
+gcdUni = foldl1' gcd2
+  where
+    gcd2 l r
+      | r == 0 = l
+      | otherwise = gcd2 r (leadReduceBy r l)
+
+gcd :: forall f v o . PolynomialConstraint (Polynomial f v o)
+    => Polynomial f v o -> Polynomial f v o -> Polynomial f v o
+gcd lhs rhs
+  | lhs == 0 || rhs == 0 = 0
+  | otherwise =
+  let lcm = withSingI (sing @"t" `SCons` sing @v)
+            withOrder order . uwkn . head $
+            filter (maybe True ((== 0) . head . powers) . leading) $
+            autoReduce $
+            groebnerBasis $ map chorder [t * wkn lhs, (1 - t) * wkn rhs]
+              where
+                chorder = withOrder (order :: Elim 1 DegRevLex)
+                (t:_) = variables @("t":v)
+                wkn :: forall o' . PolynomialConstraint (Polynomial f v o')
+                    => Polynomial f v o' -> Polynomial f ("t":v) o'
+                wkn   = sum . map (toPolynomial . \(Monomial c p) -> Monomial @f @("t":v) @o' c (0:p)) . monomials
+                uwkn :: forall o'. PolynomialConstraint (Polynomial f v o')
+                     => Polynomial f ("t":v) o' -> Polynomial f v o'
+                uwkn  = sum . map (toPolynomial . \(Monomial c p) -> Monomial @f @v @o' c (drop 1 p)) . monomials
+   in (lhs * rhs) `div` lcm
+
+

@@ -41,7 +41,10 @@ newtype Q = Q Rational deriving (Eq, Ord, Num, Fractional, Real, RealFrac)
 (%%) n = toPolynomial . Q . (%) n
 
 instance Show Q where
-  show (Q r) = show (numerator r) ++ "%%" ++ show (denominator r)
+  show (Q r) = show (numerator r) ++
+    if denominator r == 1
+      then []
+      else "%%" ++ show (denominator r)
 
 
 newtype GF (p :: Natural) = GF Natural deriving Eq
