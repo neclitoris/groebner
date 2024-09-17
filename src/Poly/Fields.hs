@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -29,6 +28,7 @@ import Data.Singletons
 import Data.Traversable
 import GHC.Natural
 import GHC.TypeLits
+import GHC.TypeLits.Singletons
 import Language.Haskell.TH qualified as TH
 
 import Poly.Polynomial
@@ -44,7 +44,7 @@ instance Show Q where
   show (Q r) = show (numerator r) ++ "%%" ++ show (denominator r)
 
 
-newtype GF (p :: Nat) = GF Natural deriving Eq
+newtype GF (p :: Natural) = GF Natural deriving Eq
 
 instance Show (GF p) where
   show (GF n) = show n

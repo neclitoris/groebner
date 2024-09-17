@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,8 +16,12 @@ module Poly.Monomial.Order
   ) where
 
 import Data.Kind
+import Data.Singletons
 import Data.Vector.Unboxed ((!))
 import Data.Vector.Unboxed qualified as V
+import GHC.Natural
+import GHC.TypeLits
+import GHC.TypeLits.Singletons
 
 
 -- | Monomial order is a relation which is expected to satisfy the following
@@ -83,3 +88,17 @@ type DegRevLex = Graded RevLex
 -- | Degree reverse lexicographic ordering.
 pattern DegRevLex :: DegRevLex
 pattern DegRevLex = Graded RevLex
+
+-- | Elimination ordering. Eliminates one variable at a time.
+data Elim (n :: Natural) order where
+  Elim :: Sing n -> order -> Elim n order
+
+instance Show order => Show (Elim n order) where
+  show (Elim n order) = "Elim " <> show (FromSing n) <> " " <> show order
+
+instance (SingI n, MonomialOrder order) => MonomialOrder (Elim n order) where
+  order = Elim sing order
+
+  monoCompare (Elim s order) l r =
+    let n = fromIntegral $ FromSing s
+     in (V.take n l `compare` V.take n r) <> (V.drop n l `compare` V.drop n r)
