@@ -16,12 +16,14 @@ import Data.Vector qualified as V
 import Data.Vector.Sized qualified as VN
 import Data.Text qualified as T
 import Data.Text (Text)
+import Data.Typeable
 import Data.Singletons
 import Data.Singletons.Decide
 
 import Polysemy
-import Polysemy.State
 import Polysemy.Error
+import Polysemy.Fail
+import Polysemy.State
 
 import Poly.Algorithms
 import Poly.Monomial.Order
@@ -41,42 +43,45 @@ import Syntax
   -- | App Expr [Expr]
   -- deriving (Show)
 
-applyList :: MonomialOrder o
-          => (forall v . SingI v => [Polynomial Double v o] -> r) -> [Value o] -> r
+applyList :: forall f o r . (Fractional f, Show f, MonomialOrder o)
+          => (forall v . SingI v => [Polynomial f v o] -> r) -> [Value f o] -> r
 applyList f l = case un of SomeSing sun -> withSingI sun $ f (map (wkn sun) l)
   where
-    getSing = \(Value (p :: Polynomial Double v o)) -> SomeSing (sing @v)
+    getSing = \(Value (p :: Polynomial f v o)) -> SomeSing (sing @v)
     sings = map getSing l
     un = foldr (\(SomeSing v1) (SomeSing v2) -> SomeSing (v1 `sUnion` v2))
                (SomeSing (sing @'[]))
                sings
     wkn :: forall (v' :: Vars) o . MonomialOrder o
         => Sing v'
-        -> Value o
-        -> Polynomial Double v' o
-    wkn sun (Value (p :: Polynomial Double v o)) =
+        -> Value f o
+        -> Polynomial f v' o
+    wkn sun (Value (p :: Polynomial f v o)) =
       case sing @v of
         s -> fromJust $ ifSubset s sun $ withSingI sun $ weaken @v' p
 
-interpretExpr :: forall o r . (MonomialOrder o, Members '[State Ctx, Error String] r)
-              => Expr -> Sem r (Value o)
+interpretExpr :: forall f o r . (Eq f, Typeable f, Fractional f, Show f
+                         , MonomialOrder o, Members '[State Ctx, Error String, Fail] r)
+              => Expr f -> Sem r (Value f o)
 interpretExpr (Const v) =
-  return $ Value (toPolynomial v :: Polynomial Double '[] o)
+  return $ Value (toPolynomial v :: Polynomial f '[] o)
 interpretExpr (Var v)   = do
-  Ctx ord ctx <- get
+  Ctx @f' @o' ord ctx <- get
+  Just Refl <- pure $ eqT @f @f'
   case M.lookup v ctx of
     Nothing       -> throw $ "Undefined variable: " <> v
     Just (Value w) -> return $ withOrder order $ Value w
 interpretExpr (App f as) = do
-  Ctx ord ctx <- get
-  exps <- mapM (interpretExpr @o) as
+  Ctx @f' @o' ord ctx <- get
+  Just Refl <- pure $ eqT @f @f'
+  exps <- mapM (interpretExpr @f @o) as
   v <- interpretExpr f
   case v of
-    Value (p :: Polynomial Double v o) -> do
+    Value (p :: Polynomial f v o) -> do
       applyList
         (\case
           (V.fromList ->
-            VN.SomeSized (v :: VN.Vector n (Polynomial Double v1 o))) ->
+            VN.SomeSized (v :: VN.Vector n (Polynomial f v1 o))) ->
               case sing @n %~ sLength (sing @v) of
                 Proved Refl -> return $ Value $ lift p @. v
                 Disproved _ ->
@@ -94,21 +99,24 @@ interpretExpr (Pow e n) = do
   Value lhs <- interpretExpr e
   return $ Value (lhs^n)
 
-interpretStmt :: Members '[State Ctx, Error String] r
-              => Stmt -> Sem r (Maybe String)
+interpretStmt :: forall f r . (Eq f, Typeable f, Fractional f, Show f
+                 , Members '[State Ctx, Error String, Fail] r)
+              => Stmt f -> Sem r (Maybe String)
 interpretStmt (Assign name args expr) = do
-  st@(Ctx (o :: o) _) <- get
+  st@(Ctx @f' @o _ _) <- get
+  Just Refl <- pure $ eqT @f @f'
   when (nub args /= args) $ throw "Variable names must be distinct"
-  let upd = withVariables (map T.pack args)
+  let upd = withVariables @f (map T.pack args)
               (\vs -> M.fromList $ zip args (map Value vs))
   modify (updateCtx upd)
-  res <- interpretExpr @o expr
+  res <- interpretExpr @f @o expr
   put st
   modify (updateCtx (M.singleton name res))
   return Nothing
 interpretStmt (AppBuiltin "S" exps) = do
-  st@(Ctx (o :: o) _) <- get
-  res <- mapM (interpretExpr @o) exps
+  st@(Ctx @f' @o _ _) <- get
+  Just Refl <- pure $ eqT @f @f'
+  res <- mapM (interpretExpr @f @o) exps
   put st
   return $ applyList
              (\case
@@ -117,25 +125,28 @@ interpretStmt (AppBuiltin "S" exps) = do
              )
              res
 interpretStmt (AppBuiltin "GroebnerBasis" exps) = do
-  st@(Ctx (o :: o) _) <- get
-  res <- mapM (interpretExpr @o) exps
+  st@(Ctx @f' @o _ _) <- get
+  Just Refl <- pure $ eqT @f @f'
+  res <- mapM (interpretExpr @f @o) exps
   put st
   return $ applyList
              (\l -> Just $ show $ groebnerBasis l)
              res
 interpretStmt (AppBuiltin "AutoReduce" exps) = do
-  st@(Ctx (o :: o) _) <- get
-  res <- mapM (interpretExpr @o) exps
+  st@(Ctx @f' @o _ _) <- get
+  Just Refl <- pure $ eqT @f @f'
+  res <- mapM (interpretExpr @f @o) exps
   put st
   return $ applyList
              (\l -> Just $ show $ autoReduce l)
              res
 interpretStmt (Eval expr) = do
-  st@(Ctx (o :: o) _) <- get
+  st@(Ctx @f' @o _ _) <- get
+  Just Refl <- pure $ eqT @f @f'
   let fv = S.toList $ freeVars expr
-  let upd = withVariables (map T.pack fv)
+  let upd = withVariables @f (map T.pack fv)
               (\vs -> M.fromList $ zip fv (map Value vs))
   modify (updateCtxNoShadow upd)
-  Value res <- interpretExpr @o expr
+  Value res <- interpretExpr @f @o expr
   put st
   return $ Just $ show res

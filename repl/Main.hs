@@ -1,4 +1,5 @@
 import Control.Monad
+import Data.Proxy
 import System.IO
 import System.Console.Haskeline
 
@@ -16,21 +17,24 @@ printLine :: (Member (Final (InputT IO)) r) => String -> Sem r ()
 printLine a = embedFinal $ outputStrLn @IO $ a
 
 runCommand :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Command -> Sem r ()
-runCommand (Run stmt) = do
-  interpretStmt stmt >>= maybe (return ()) printLine
+runCommand (Run (stmt :: Stmt f)) = do
+  interpretStmt @f stmt >>= maybe (return ()) printLine
   repl
 runCommand (Do Quit)     = return ()
 runCommand (Do ShowHelp) = do
   printLine "\t:order Lex|RevLex|DegLex|DegRevLex\tchange monomial order"
+  printLine "\t:field Double\tchange coefficient field"
   printLine "\t:help\tshow this message"
   printLine "\t:quit\tquit"
   repl
 runCommand (Do (SwitchOrder ord)) = modify (switchOrder ord) >> repl
+runCommand (Do (SwitchField p)) = modify (switchField p) >> repl
 
 repl :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Sem r ()
 repl = do
   (Just line) <- embedFinal $ getInputLine @IO "> "
-  let res = parseCommand line
+  Ctx @f @o _ _ <- get
+  let res = parseCommand (Proxy @f) line
   case res of
     Right cmd -> runCommand cmd `catch` \s -> printLine s >> repl
     Left err  -> printLine err >> repl

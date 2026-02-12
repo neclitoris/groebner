@@ -4,6 +4,8 @@ module Syntax where
 import Data.Bifunctor
 import Data.HashSet qualified as HS
 import Data.List
+import Data.Proxy
+import Data.Typeable
 import Data.Void
 
 import Control.Applicative (empty)
@@ -14,45 +16,57 @@ import Text.Megaparsec ((<?>))
 import Text.Megaparsec.Char qualified as MPC hiding (space)
 import Text.Megaparsec.Char.Lexer qualified as MPC
 import Text.Megaparsec.Error qualified as MPC
+import Text.Read (reads)
 
 import Poly.Polynomial
 import Poly.Monomial.Order
 import Poly.Variables
 
 
-data Expr
-  = Const Double
+data Expr f
+  = Const f
   | Var String
   | Binop (forall f v o . (PolynomialConstraint (Polynomial f v o))
                       => Polynomial f v o
                       -> Polynomial f v o
-                      -> Polynomial f v o) Expr Expr
-  | Pow Expr Int
-  | Neg Expr
-  | App Expr [Expr]
+                      -> Polynomial f v o) (Expr f) (Expr f)
+  | Pow (Expr f) Int
+  | Neg (Expr f)
+  | App (Expr f) [Expr f]
 
 add lhs rhs = Binop (+) lhs rhs
 sub lhs rhs = Binop (-) lhs rhs
 mul lhs rhs = Binop (*) lhs rhs
 
-data Stmt
-  = Assign String [String] Expr
-  | AppBuiltin String [Expr]
-  | Eval Expr
+data Stmt f
+  = Assign String [String] (Expr f)
+  | AppBuiltin String [Expr f]
+  | Eval (Expr f)
 
 data Action where
   Quit :: Action
   ShowHelp :: Action
   SwitchOrder :: forall o. MonomialOrder o => o -> Action
+  SwitchField :: forall f . (Fractional f, Eq f, Read f, Show f, Typeable f)
+              => Proxy f -> Action
 
 data Command
-  = Run Stmt
+  = forall f . (Typeable f, Fractional f, Show f, Eq f) => Run (Stmt f)
   | Do Action
 
 
 type Parser = MPC.Parsec Void String
 
-stmt :: Parser Stmt
+readMP :: Read a => Parser a
+readMP = do
+  input  <- MPC.getInput
+  offset <- MPC.getOffset
+  choice $
+    (\(a, input') -> a <$ MPC.setInput input'
+                       <* MPC.setOffset (offset + length input - length input'))
+    <$> reads input
+
+stmt :: Read f => Parser (Stmt f)
 stmt = MPC.label "statement" $ assign <|> builtin <|> eval
   where
     assign = MPC.try $ do
@@ -70,7 +84,7 @@ stmt = MPC.label "statement" $ assign <|> builtin <|> eval
       MPC.eof
       return (Eval e)
 
-expr :: Parser Expr
+expr :: Read f => Parser (Expr f)
 expr = MPC.label "expression" $ makeExprParser term
   [ [ Prefix (Neg <$ symbol "-")
     ]
@@ -87,15 +101,15 @@ app p a = MPC.try $ do
   args <- parens (a `sepBy1` (symbol ",") <?> "argument list") <?> "application"
   return (n, args)
 
-atom :: Parser Expr
+atom :: Read f => Parser (Expr f)
 atom = MPC.label "atom" $ MPC.choice
   [ parens expr
   , Var <$> name
   ]
 
-term :: Parser Expr
+term :: Read f => Parser (Expr f)
 term = MPC.label "term" $ MPC.choice
-  [ Const <$> number
+  [ Const <$> readMP
   , uncurry App <$> app atom expr
   , MPC.try $ Pow <$> atom <*> (symbol "^" *> int)
   , atom
@@ -113,7 +127,8 @@ space = MPC.space MPC.space1 empty empty
 parens = between (symbol "(") (symbol ")")
 brackets = between (symbol "[") (symbol "]")
 
-command = MPC.try $ Run <$> stmt <|>
+command :: forall f . (Fractional f, Typeable f, Show f, Read f, Eq f) => Proxy f -> Parser Command
+command _ = MPC.try $ Run <$> stmt @f <|>
   MPC.string ":" *> MPC.choice
   [ Do Quit <$ shortSymbol "quit"
   , Do ShowHelp <$ shortSymbol "help"
@@ -124,12 +139,28 @@ command = MPC.try $ Run <$> stmt <|>
       , MPC.string' "DegLex" *> pure (SwitchOrder DegLex)
       , MPC.string' "DegRevLex" *> pure (SwitchOrder DegRevLex)
       ])
+  , (\a -> Do a) <$> (shortSymbol "field" *>
+    MPC.choice
+      [ MPC.string' "Double" *> pure (SwitchField (Proxy @Double))
+      , MPC.string' "Rational" *> pure (SwitchField (Proxy @Rational))
+      -- , do
+          -- i <- MPC.string' "Z_" *> int
+          -- SomeSing (_ :: Sing p) <- pure $ toSing i
+          -- case
+          -- pure (SwitchField (Proxy @(GF p)))
+      ])
   , pure (Do ShowHelp)]
+
+
+parseStmt :: Read f => String -> Either String (Stmt f)
 parseStmt = bimap MPC.errorBundlePretty id . MPC.runParser stmt ""
-parseCommand = bimap MPC.errorBundlePretty id . MPC.runParser command ""
+
+parseCommand :: forall f . (Fractional f, Typeable f, Show f, Read f, Eq f)
+             => Proxy f -> String -> Either String Command
+parseCommand p = bimap MPC.errorBundlePretty id . MPC.runParser (command p) ""
 
 
-freeVars :: Expr -> HS.HashSet String
+freeVars :: Expr f -> HS.HashSet String
 freeVars (Const _)  = HS.empty
 freeVars (Var s)    = HS.singleton s
 freeVars (App a bs) = HS.unions (freeVars a : map freeVars bs)
