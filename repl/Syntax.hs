@@ -5,6 +5,7 @@ import Data.Bifunctor
 import Data.HashSet qualified as HS
 import Data.List
 import Data.Proxy
+import Data.Reflection (give)
 import Data.Typeable
 import Data.Void
 
@@ -18,6 +19,7 @@ import Text.Megaparsec.Char.Lexer qualified as MPC
 import Text.Megaparsec.Error qualified as MPC
 import Text.Read (reads)
 
+import Poly.Fields
 import Poly.Polynomial
 import Poly.Monomial.Order
 import Poly.Variables
@@ -143,11 +145,10 @@ command _ = MPC.try $ Run <$> stmt @f <|>
     MPC.choice
       [ MPC.string' "Double" *> pure (SwitchField (Proxy @Double))
       , MPC.string' "Rational" *> pure (SwitchField (Proxy @Rational))
-      -- , do
-          -- i <- MPC.string' "Z_" *> int
-          -- SomeSing (_ :: Sing p) <- pure $ toSing i
-          -- case
-          -- pure (SwitchField (Proxy @(GF p)))
+      , do
+          i <- MPC.string' "GF " *> int
+          Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime $ fromIntegral i
+          give w $ pure (SwitchField (Proxy @(GF p)))
       ])
   , pure (Do ShowHelp)]
 

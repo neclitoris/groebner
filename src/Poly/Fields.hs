@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -15,15 +17,18 @@ module Poly.Fields
   , GF
 
   -- * Other
-  , assertPrimality
-  , primes
-  , genPrimes
+  , PrimeW
+  , SomePrimeW(..)
+  , pattern PrimeW
+  , isPrime
   ) where
 
 import Control.Monad
+import Data.Bool.Singletons
 import Data.Constraint
 import Data.Kind
 import Data.Ratio
+import Data.Reflection
 import Data.Singletons
 import Data.Traversable
 import GHC.Natural
@@ -52,6 +57,9 @@ newtype GF (p :: Natural) = GF Natural deriving Eq
 instance Show (GF p) where
   show (GF n) = show n
 
+instance Num (GF p) => Read (GF p) where
+  readsPrec d r = map (\(v, s) -> (fromInteger v, s)) $ readsPrec d r
+
 instance (1 <= p, SingI p) => Num (GF p) where
   GF n + GF m = GF ((n + m) `mod` FromSing (sing :: Sing p))
   negate (GF n) = GF (FromSing (sing :: Sing p) - n)
@@ -64,9 +72,14 @@ instance (1 <= p, SingI p) => Num (GF p) where
   abs    = id
   signum = const $ GF 1
 
-type family Prime (n :: Nat) :: Constraint
+data PrimeW n = PrimeW_
 
-instance (Num (GF p), SingI p, Prime p) => Fractional (GF p) where
+data SomePrimeW = forall n . (1 <= n, KnownNat n) => SomePrimeW (PrimeW n)
+
+pattern PrimeW :: PrimeW n
+pattern PrimeW <- PrimeW_
+
+instance (Num (GF p), SingI p, Given (PrimeW p)) => Fractional (GF p) where
   recip (GF n) = let GCDEx x _ _ = gcdex (naturalToInteger n) p
                      p = naturalToInteger $ FromSing (sing :: Sing p)
                   in fromInteger $ x `mod` p
@@ -75,25 +88,16 @@ instance (Num (GF p), SingI p, Prime p) => Fractional (GF p) where
                        y = denominator r
                     in fromInteger x / fromInteger y
 
-
 -- | Primality test of type level naturals is beyond me.
 -- Use this to ensure primality.
-assertPrimality :: Integer -> TH.Q [TH.Dec]
-assertPrimality n =
-  if not (isPrime n)
-     then fail $ show n ++ " is not prime"
-     else [d| type instance Prime $(TH.litT $ TH.numTyLit n) = () |]
-    where
-      isPrime n = and [ n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) [2..]]
-
-primes :: [Integer]
-primes = 2 : filter isPrime [3..]
-  where
-    isPrime n = and [n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) primes]
-
-genPrimes :: Integer -> TH.Q [TH.Dec]
-genPrimes n = join <$> for (takeWhile (<=n) primes)
-    (\p -> [d| type instance Prime $(TH.litT $ TH.numTyLit p) = () |])
+isPrime :: Natural -> Maybe SomePrimeW
+isPrime n = do
+  SomeSing (s :: Sing p) <- pure $ toSing n
+  STrue <- pure $ (sing :: Sing 1) %<=? s
+  withKnownNat s $
+    if (and [ n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) [2..]])
+      then pure $ SomePrimeW $ PrimeW_ @p
+      else Nothing
 
 data GCDEx =
   GCDEx { gcdLhsCoef :: Integer

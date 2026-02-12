@@ -12,6 +12,7 @@ module Properties
 import Control.Monad
 import Data.List
 import Data.Maybe
+import Data.Reflection
 import Data.Singletons
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -34,9 +35,6 @@ import Poly.Polynomial
 import Util
 
 
-$(assertPrimality 5)
-
-
 properties :: Tasty.TestTree
 properties = Tasty.testGroup "properties"
   [ Tasty.testGroup "buchberger"
@@ -55,8 +53,9 @@ buchbergerCriterion :: Property
 buchbergerCriterion = withTests 1000 $ property do
   numNames <- forAll $ Gen.int (Range.linear 2 4)
   let names = map (\n -> "x" <> Text.pack (show n)) [1..numNames]
+  Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime 5
 
-  withVariables names \(vs :: [Polynomial (GF 5) v Lex]) -> do
+  give w $ withVariables names \(vs :: [Polynomial (GF p) v Lex]) -> do
     polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
 
     let basis   = groebnerBasis $ map (withOrder DegRevLex) polys
@@ -73,8 +72,9 @@ containsOriginal :: Property
 containsOriginal = property do
   numNames <- forAll $ Gen.int (Range.linear 2 4)
   let names = map (\n -> "x" <> Text.pack (show n)) [1..numNames]
+  Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime 5
 
-  withVariables names \(vs :: [Polynomial (GF 5) v Lex]) -> do
+  give w $ withVariables names \(vs :: [Polynomial (GF p) v Lex]) -> do
     polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
 
     let basis   = groebnerBasis polys
@@ -89,8 +89,9 @@ orderInvariance :: Property
 orderInvariance = property do
   numNames <- forAll $ Gen.int (Range.linear 2 4)
   let names = map (\n -> "x" <> Text.pack (show n)) [1..numNames]
+  Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime 5
 
-  withVariables names \(vs :: [Polynomial (GF 5) v Lex]) -> do
+  give w $ withVariables names \(vs :: [Polynomial (GF p) v Lex]) -> do
     polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 4) (genPoly genGF vs)
 
     let calcGrevlex :: (PolynomialConstraint (Polynomial f v o))

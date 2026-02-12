@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 import Criterion
 import Criterion.Main
+import Data.Reflection
 import Data.Singletons
 import Data.Text qualified as Text
 
@@ -15,22 +16,19 @@ import Poly.Monomial.Order
 import Poly.Polynomial
 
 
-$(assertPrimality 127)
-
-
 mkVars i = map (\i -> "x" <> Text.pack (show i)) [1..i]
 
 
-groebnerPipeline :: PolynomialConstraint (Polynomial (GF 127) v Lex)
-                 => [Polynomial (GF 127) v Lex] -> [String]
+groebnerPipeline :: forall f v . PolynomialConstraint (Polynomial f v Lex)
+                 => [Polynomial f v Lex] -> [String]
 groebnerPipeline =
   map (show . withOrder Lex)
   . autoReduce
   . groebnerBasis
   . map (withOrder (Graded RevLex))
 
-groebnerPipelineToLex :: PolynomialConstraint (Polynomial (GF 127) v Lex)
-                      => [Polynomial (GF 127) v Lex] -> [String]
+groebnerPipelineToLex :: forall f v . PolynomialConstraint (Polynomial f v Lex)
+                      => [Polynomial f v Lex] -> [String]
 groebnerPipelineToLex =
   map show
   . autoReduce
@@ -40,11 +38,17 @@ groebnerPipelineToLex =
   . groebnerBasis
   . map (withOrder (Graded RevLex))
 
-run :: (forall v . SingI v => [Polynomial (GF 127) v Lex] -> [Polynomial (GF 127) v Lex])
-    -> (forall v . SingI v => [Polynomial (GF 127) v Lex] -> r)
+run :: (forall f v . (SingI v, PolynomialConstraint (Polynomial f v Lex))
+        => [Polynomial f v Lex] -> [Polynomial f v Lex])
+    -> (forall f v . (SingI v, PolynomialConstraint (Polynomial f v Lex))
+        => [Polynomial f v Lex] -> r)
     -> Int
     -> r
-run system pipeline n = withVariables (mkVars n) (pipeline . system)
+run system pipeline n =
+  case isPrime 127 of
+    Just (SomePrimeW (w@(PrimeW @p))) -> give w $
+      withVariables (mkVars n) (pipeline @(GF p) . system @(GF p))
+    Nothing -> error "Impossible"
 
 main = defaultMain
   [ bgroup "find reduced Groebner basis, GF 127, grevlex"

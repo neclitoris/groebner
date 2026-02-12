@@ -23,7 +23,7 @@ runCommand (Run (stmt :: Stmt f)) = do
 runCommand (Do Quit)     = return ()
 runCommand (Do ShowHelp) = do
   printLine "\t:order Lex|RevLex|DegLex|DegRevLex\tchange monomial order"
-  printLine "\t:field Double\tchange coefficient field"
+  printLine "\t:field Double|Rational|GF <prime>\tchange coefficient field"
   printLine "\t:help\tshow this message"
   printLine "\t:quit\tquit"
   repl
