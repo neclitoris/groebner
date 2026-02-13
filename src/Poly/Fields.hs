@@ -1,12 +1,4 @@
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Fields
   ( -- * Rational numbers
@@ -34,7 +26,6 @@ import Data.Traversable
 import GHC.Natural
 import GHC.TypeLits
 import GHC.TypeLits.Singletons
-import Language.Haskell.TH qualified as TH
 
 import Poly.Polynomial
 

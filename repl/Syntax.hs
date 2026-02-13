@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
 module Syntax where
 
 import Data.Bifunctor

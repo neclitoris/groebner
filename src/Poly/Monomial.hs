@@ -1,5 +1,3 @@
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Poly.Monomial
   (

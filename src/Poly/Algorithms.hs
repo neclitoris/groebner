@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Poly.Algorithms
   (
   -- * Reductions
