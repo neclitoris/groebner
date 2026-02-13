@@ -200,7 +200,7 @@ gcd lhs rhs
             groebnerBasis $ map chorder [t * wkn lhs, (1 - t) * wkn rhs]
               where
                 chorder = withOrder (order :: Elim 1 DegRevLex)
-                (t:_) = variables @("t":v)
+                (t:_) = variables ("t":v)
                 wkn :: forall o' . PolynomialConstraint (Polynomial f v o')
                     => Polynomial f v o' -> Polynomial f ("t":v) o'
                 wkn   = sum . map (toPolynomial . \(Monomial c p) -> Monomial @f @("t":v) @o' c (0:p)) . monomials

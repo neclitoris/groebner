@@ -70,9 +70,9 @@ instance MonomialOrder RevLex where
 
 -- | Graded ordering. First compares total degree of monomials, using
 -- its parameter order as tie breaker in case of equality.
-newtype Graded order = Graded order deriving Show
+newtype Graded ord = Graded ord deriving Show
 
-instance MonomialOrder order => MonomialOrder (Graded order) where
+instance MonomialOrder ord => MonomialOrder (Graded ord) where
   order = Graded order
 
   monoCompare (Graded order) l r = (V.sum l `compare` V.sum r) <> monoCompare order l r
@@ -94,10 +94,10 @@ pattern DegRevLex = Graded RevLex
 data Elim (n :: Natural) order where
   Elim :: Sing n -> order -> Elim n order
 
-instance Show order => Show (Elim n order) where
+instance Show ord => Show (Elim n ord) where
   show (Elim n order) = "Elim " <> show (FromSing n) <> " " <> show order
 
-instance (SingI n, MonomialOrder order) => MonomialOrder (Elim n order) where
+instance (SingI n, MonomialOrder ord) => MonomialOrder (Elim n ord) where
   order = Elim sing order
 
   monoCompare (Elim s order) l r =

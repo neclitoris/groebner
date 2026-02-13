@@ -86,3 +86,4 @@ default-extensions:
 - TypeFamilies
 - TypeOperators
 - PatternSynonyms
+- RequiredTypeArguments

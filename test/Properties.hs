@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Properties
   ( properties
@@ -164,13 +163,13 @@ genMono :: forall v f m . (PolynomialConstraint (Polynomial f v Lex), MonadGen m
         -> m (Polynomial f v Lex)
 genMono mCoef vars = do
   coef   <- mCoef
-  powers <- Gen.filterT ((< numVars @v) . sum)
-              $ replicateM (numVars @v)
-              $ Gen.int (Range.exponential 0 (numVars @v - 1))
+  powers <- Gen.filterT ((< numVars v) . sum)
+              $ replicateM (numVars v)
+              $ Gen.int (Range.exponential 0 (numVars v - 1))
   case coef of
     0 -> pure 0
     _ -> pure $ toPolynomial coef * product (zipWith (^) vars powers)
 
-numVars :: forall (v :: Vars). SingI v => Int
-numVars = length $ fromSing (sing :: Sing v)
+numVars :: forall (v :: Vars) -> SingI v => Int
+numVars v = length $ fromSing (sing :: Sing v)
 

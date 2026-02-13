@@ -91,9 +91,9 @@ weaken2 p1 p2 = let v1 = sing @v1
 
 -- | List of polynomials that represent individual variables, in lexicographic
 -- order.
-variables :: forall v f o. (Num f, SingI v)
+variables :: forall v -> forall f o. (Num f, SingI v)
           => [Polynomial f v o]
-variables = Polynomial . (:[]) <$> M.variables
+variables v = Polynomial . (:[]) <$> M.variables v
 
 -- | Lift a list of variable names to type level, and pass list of
 -- polynomials representing them to a continuation. This can be used
@@ -107,7 +107,7 @@ withVariables :: Num f
               => Demote Vars
               -> (forall v. SingI v => [Polynomial f v Lex] -> r)
               -> r
-withVariables v f = withSomeSing v \(s :: Sing v) -> withSingI s $ f $ variables @v
+withVariables ns f = withSomeSing ns \(s :: Sing v) -> withSingI s $ f $ variables v
 
 -- | View the leading monomial of a polynomial, if it's not zero.
 leading :: Polynomial f v o -> Maybe (Monomial f v o)
@@ -143,8 +143,8 @@ instance PP.Pretty (Polynomial f v o) => Show (Polynomial f v o) where
   showsPrec _ =
     PP.renderShowS . PP.layoutSmart PP.defaultLayoutOptions . PP.pretty
 
-instance (Num field, Eq field, SingI vars, MonomialOrder order)
-    => Num (Polynomial field vars order) where
+instance (Num field, Eq field, SingI vars, MonomialOrder ord)
+    => Num (Polynomial field vars ord) where
   (monomials -> l) + (monomials -> r) =
     Polynomial $ impl l r where
       impl l      []     = l

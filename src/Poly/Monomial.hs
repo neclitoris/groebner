@@ -113,8 +113,8 @@ constant f = MonomialImpl f (V.replicate l 0)
 
 -- | List of monomials that represent individual variables, in lexicographic
 -- order.
-variables :: forall v f o . (Num f, SingI v) => [Monomial f v o]
-variables = map (MonomialImpl 1) pows
+variables :: forall v -> forall f o . (Num f, SingI v) => [Monomial f v o]
+variables v = map (MonomialImpl 1) pows
   where
     len  = length $ fromSing (sing @v)
     pows = map (\i -> V.generate len (\j -> if i == j + 1 then 1 else 0)) [1..len]
