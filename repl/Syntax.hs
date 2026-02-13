@@ -1,6 +1,7 @@
 module Syntax where
 
 import Data.Bifunctor
+import Data.Functor
 import Data.HashSet qualified as HS
 import Data.List
 import Data.Proxy
@@ -36,9 +37,9 @@ data Expr f
   | Neg (Expr f)
   | App (Expr f) [Expr f]
 
-add lhs rhs = Binop (+) lhs rhs
-sub lhs rhs = Binop (-) lhs rhs
-mul lhs rhs = Binop (*) lhs rhs
+add = Binop (+)
+sub = Binop (-)
+mul = Binop (*)
 
 data Stmt f
   = Assign String [String] (Expr f)
@@ -63,8 +64,7 @@ readMP :: Read a => Parser a
 readMP = MPC.label "field coefficient" do
   input  <- MPC.getInput
   offset <- MPC.getOffset
-  (choice $
-    (\(a, input') -> a <$ MPC.setInput input'
+  choice ((\(a, input') -> a <$ MPC.setInput input'
                        <* MPC.setOffset (offset + length input - length input'))
     <$> reads input) <* space
 
@@ -76,15 +76,15 @@ stmt = MPC.label "statement" $ assign <|> builtin <|> eval
       symbol "="
       e <- expr
       MPC.eof
-      return (Assign n a e)
+      pure (Assign n a e)
     builtin = MPC.try $ do
-      (n, a) <- app (MPC.choice $ (map symbol) ["S", "GroebnerBasis", "AutoReduce", "GCD"]) expr
+      (n, a) <- app (MPC.choice $ map symbol ["S", "GroebnerBasis", "AutoReduce", "GCD"]) expr
       MPC.eof
-      return (AppBuiltin n a)
+      pure (AppBuiltin n a)
     eval = do
       e <- expr
       MPC.eof
-      return (Eval e)
+      pure (Eval e)
 
 expr :: Read f => Parser (Expr f)
 expr = MPC.label "expression" $ makeExprParser term
@@ -100,8 +100,8 @@ expr = MPC.label "expression" $ makeExprParser term
 app :: Parser a -> Parser b -> Parser (a, [b])
 app p a = MPC.try $ do
   n <- p
-  args <- parens (a `sepBy1` (symbol ",") <?> "argument list") <?> "application"
-  return (n, args)
+  args <- parens (a `sepBy1` symbol "," <?> "argument list") <?> "application"
+  pure (n, args)
 
 atom :: Read f => Parser (Expr f)
 atom = MPC.label "atom" $ MPC.choice
@@ -118,7 +118,7 @@ term = MPC.label "term" $ MPC.choice
   ]
 
 symbol = MPC.symbol space
-shortSymbol s = MPC.choice $ map (MPC.try . symbol) $ (reverse $ tail $ inits s)
+shortSymbol s = MPC.choice $ map (MPC.try . symbol) $ reverse (tail $ inits s)
 name = (:) <$> MPC.letterChar <*> many MPC.alphaNumChar <* space <?> "name"
 int = MPC.decimal <* space <?> "int"
 number = MPC.choice
@@ -134,17 +134,17 @@ command f = MPC.try $ Run f <$> stmt @f <|>
   MPC.string ":" *> MPC.choice
   [ Do Quit <$ shortSymbol "quit"
   , Do ShowHelp <$ shortSymbol "help"
-  , (\a -> Do a) <$> (shortSymbol "order" *>
+  , Do <$> (shortSymbol "order" *>
     MPC.choice
-      [ MPC.string' "Lex" *> pure (SwitchOrder Lex)
-      , MPC.string' "RevLex" *> pure (SwitchOrder RevLex)
-      , MPC.string' "DegLex" *> pure (SwitchOrder DegLex)
-      , MPC.string' "DegRevLex" *> pure (SwitchOrder DegRevLex)
+      [ MPC.string' "Lex" $> SwitchOrder Lex
+      , MPC.string' "RevLex" $> SwitchOrder RevLex
+      , MPC.string' "DegLex" $> SwitchOrder DegLex
+      , MPC.string' "DegRevLex" $> SwitchOrder DegRevLex
       ])
-  , (\a -> Do a) <$> (shortSymbol "field" *>
+  , Do <$> (shortSymbol "field" *>
     MPC.choice
-      [ MPC.string' "Double" *> pure (SwitchField FDouble)
-      , MPC.string' "Rational" *> pure (SwitchField FRational)
+      [ MPC.string' "Double" $> SwitchField FDouble
+      , MPC.string' "Rational" $> SwitchField FRational
       , do
           i <- MPC.string' "GF " *> int
           Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime $ fromIntegral i
@@ -154,11 +154,11 @@ command f = MPC.try $ Run f <$> stmt @f <|>
 
 
 parseStmt :: Read f => String -> Either String (Stmt f)
-parseStmt = bimap MPC.errorBundlePretty id . MPC.runParser (space *> stmt) ""
+parseStmt = first MPC.errorBundlePretty . MPC.runParser (space *> stmt) ""
 
 parseCommand :: forall f . (Fractional f, Show f, Read f, Eq f)
              => FieldType f -> String -> Either String Command
-parseCommand f = bimap MPC.errorBundlePretty id . MPC.runParser (space *> command f) ""
+parseCommand f = first MPC.errorBundlePretty . MPC.runParser (space *> command f) ""
 
 
 freeVars :: Expr f -> HS.HashSet String

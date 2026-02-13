@@ -1,3 +1,4 @@
+import Control.Arrow ((<<<))
 import Control.Monad
 import Data.Proxy
 import System.IO
@@ -18,9 +19,9 @@ printLine a = embedFinal $ outputStrLn @IO $ a
 
 runCommand :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Command -> Sem r ()
 runCommand (Run f stmt) = do
-  interpretStmt f stmt >>= maybe (return ()) printLine
+  interpretStmt f stmt >>= maybe (pure ()) printLine
   repl
-runCommand (Do Quit)     = return ()
+runCommand (Do Quit)     = pure ()
 runCommand (Do ShowHelp) = do
   printLine "\t:order Lex|RevLex|DegLex|DegRevLex\tchange monomial order"
   printLine "\t:field Double|Rational|GF <prime>\tchange coefficient field"
@@ -42,14 +43,11 @@ repl = do
 main :: IO ()
 main =
   runInputT defaultSettings
-  . runFinal @(InputT IO)
-  . void
-  . (>>= \case
-      Left e -> printLine e
-      Right _ -> return ()
-    )
-  . runError @String
-  . failToError id
-  . runState defaultCtx
+  <<< runFinal @(InputT IO)
+  <<< void
+  <<< either printLine (const $ pure ())
+  <=< runError @String
+  <<< failToError id
+  <<< runState defaultCtx
   $ repl
 

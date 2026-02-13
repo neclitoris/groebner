@@ -4,7 +4,6 @@ import Control.Monad
 
 import System.Console.Haskeline
 
-import Data.Bifunctor
 import Data.HashMap.Strict qualified as M
 import Data.HashSet qualified as S
 import Data.List
@@ -43,12 +42,15 @@ import Prelude hiding (gcd)
   -- | App Expr [Expr]
   -- deriving (Show)
 
-applyList :: forall f o r . (Fractional f, Show f, MonomialOrder o)
-          => (forall v . SingI v => [Polynomial f v o] -> r) -> [Value f o] -> r
-applyList f l = case un of SomeSing sun -> withSingI sun $ f (map (wkn sun) l)
+data SomePolys f o = forall v . SingI v => SomePolys [Polynomial f v o]
+
+weakenVals :: forall f o . MonomialOrder o => [Value f o] -> SomePolys f o
+weakenVals vals =
+  case un of SomeSing (sun :: Sing u) ->
+              withSingI sun $ SomePolys $ map (wkn sun) vals
   where
     getSing (Value (p :: Polynomial f v o)) = SomeSing (sing @v)
-    sings = map getSing l
+    sings = map getSing vals
     un = foldr (\(SomeSing v1) (SomeSing v2) -> SomeSing (v1 `sUnion` v2))
                (SomeSing (sing @'[]))
                sings
@@ -60,44 +62,41 @@ applyList f l = case un of SomeSing sun -> withSingI sun $ f (map (wkn sun) l)
       case sing @v of
         s -> fromJust $ ifSubset s sun $ withSingI sun $ weaken @v' p
 
+applyList :: forall f o r . (Fractional f, Show f, MonomialOrder o)
+          => (forall v . SingI v => [Polynomial f v o] -> r) -> [Value f o] -> r
+applyList f l = case weakenVals l of SomePolys ps -> f ps
+
 interpretExpr :: forall f o r . (Eq f, Fractional f, Show f
                          , MonomialOrder o, Members '[State Ctx, Error String, Fail] r)
               => FieldType f -> Expr f -> Sem r (Value f o)
 interpretExpr f (Const v) =
-  return $ Value (toPolynomial v :: Polynomial f '[] o)
+  pure $ Value (toPolynomial v :: Polynomial f '[] o)
 interpretExpr f (Var v)   = do
   Ctx f' ord ctx <- get
   Just Refl <- pure $ testEquality f f'
   case M.lookup v ctx of
     Nothing       -> throw $ "Undefined variable: " <> v
-    Just (Value w) -> return $ withOrder order $ Value w
+    Just (Value w) -> pure $ withOrder order $ Value w
 interpretExpr f (App a as) = do
   Ctx f' ord ctx <- get
   Just Refl <- pure $ testEquality f f'
   exps <- mapM (interpretExpr @f @o f) as
-  val <- interpretExpr f a
-  case val of
-    Value (p :: Polynomial f v o) -> do
-      applyList
-        (\case
-          (V.fromList ->
-            VN.SomeSized (v :: VN.Vector n (Polynomial f v1 o))) ->
-              case sing @n %~ sLength (sing @v) of
-                Proved Refl -> return $ Value $ lift p @. v
-                Disproved _ ->
-                  throw "Invalid number of arguments in variable substitution"
-        )
-        exps
+  Value (p :: Polynomial f v o) <- interpretExpr f a
+  SomePolys (V.fromList -> VN.SomeSized (v :: VN.Vector n (Polynomial f v1 o)))
+    <- pure $ weakenVals exps
+  case sing @n %~ sLength (sing @v) of
+    Proved Refl -> pure $ Value $ lift p @. v
+    Disproved _ -> throw "Invalid number of arguments in variable substitution"
 interpretExpr f (Binop op e1 e2) = do
   lhs <- interpretExpr f e1
   rhs <- interpretExpr f e2
-  applyList (\[x, y] -> return $ Value $ x `op` y) [lhs, rhs]
+  applyList (\[x, y] -> pure $ Value $ x `op` y) [lhs, rhs]
 interpretExpr f (Neg e) = do
   Value p <- interpretExpr f e
-  return $ Value (-p)
+  pure $ Value (-p)
 interpretExpr f (Pow e n) = do
   Value lhs <- interpretExpr f e
-  return $ Value (lhs^n)
+  pure $ Value (lhs^n)
 
 interpretStmt :: forall f r . (Eq f, Fractional f, Show f
                  , Members '[State Ctx, Error String, Fail] r)
@@ -112,41 +111,35 @@ interpretStmt f (Assign name args expr) = do
   res <- interpretExpr @f @o f expr
   put st
   modify (updateCtx f (M.singleton name res))
-  return Nothing
+  pure Nothing
 interpretStmt f (AppBuiltin "S" exps) = do
   st@(Ctx f' (o :: o) _) <- get
   Just Refl <- pure $ testEquality f f'
   res <- mapM (interpretExpr @f @o f) exps
   put st
-  return $ applyList
-             (\case
-               [x, y] -> Just $ show $ sPolynomial x y
-               _ -> Just "Error: 'S' only accepts two arguments"
-             )
-             res
+  case weakenVals res of
+    SomePolys [x, y] -> pure $ Just $ show $ sPolynomial x y
+    _                -> throw "Error: 'S' only accepts two arguments"
 interpretStmt f (AppBuiltin "GCD" exps) = do
   st@(Ctx f' (o :: o) _) <- get
   Just Refl <- pure $ testEquality f f'
   res <- mapM (interpretExpr @f @o f) exps
   put st
-  return $ applyList
-             (\case
-               [x, y] -> Just $ show $ gcd x y
-               _ -> Just "Error: 'GCD' only accepts two arguments"
-             )
-             res
+  case weakenVals res of
+    SomePolys [x, y] -> pure $ Just $ show $ gcd x y
+    _                -> throw "Error: 'GCD' only accepts two arguments"
 interpretStmt f (AppBuiltin "GroebnerBasis" exps) = do
   st@(Ctx f' (o :: o) _) <- get
   Just Refl <- pure $ testEquality f f'
   res <- mapM (interpretExpr @f @o f) exps
   put st
-  return $ applyList (Just . show . groebnerBasis) res
+  pure $ applyList (Just . show . groebnerBasis) res
 interpretStmt f (AppBuiltin "AutoReduce" exps) = do
   st@(Ctx f' (o :: o) _) <- get
   Just Refl <- pure $ testEquality f f'
   res <- mapM (interpretExpr @f @o f) exps
   put st
-  return $ applyList (Just . show . autoReduce) res
+  pure $ applyList (Just . show . autoReduce) res
 interpretStmt f (Eval expr) = do
   st@(Ctx f' (o :: o) _) <- get
   Just Refl <- pure $ testEquality f f'
@@ -155,4 +148,4 @@ interpretStmt f (Eval expr) = do
   modify (updateCtxNoShadow f upd)
   Value res <- interpretExpr @f @o f expr
   put st
-  return $ Just $ show res
+  pure $ Just $ show res

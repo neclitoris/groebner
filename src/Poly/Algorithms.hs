@@ -48,15 +48,15 @@ maybeLeadReduceBy divisor dividend = do
   r <- divide m n
   pure $ dividend - toPolynomial r * divisor
 
--- | Lead reduction. Fails on zero divisor. If impossible to reduce, returns dividend.
+-- | Lead reduction. Fails on zero divisor. If impossible to reduce, pures dividend.
 leadReduceBy :: PolynomialConstraint (Polynomial f v o)
              => Polynomial f v o -- ^ Divisor
              -> Polynomial f v o -- ^ Dividend
              -> Polynomial f v o
 leadReduceBy divisor dividend = evalCont $ reset do
-  m <- maybe (shift \_ -> return 0) return $ leading dividend
-  n <- maybe (shift \_ -> error "Division by zero") return $ leading divisor
-  r <- maybe (shift \_ -> return dividend) return $ divide m n
+  m <- maybe (shift \_ -> pure 0) pure $ leading dividend
+  n <- maybe (shift \_ -> error "Division by zero") pure $ leading divisor
+  r <- maybe (shift \_ -> pure dividend) pure $ divide m n
   pure $ dividend - toPolynomial r * divisor
 
 -- | Reduction. That is, if \(\operatorname{LM}(g) \mid m\) and \(m \in f\)
@@ -71,7 +71,7 @@ maybeFullyReduceBy divisor dividend = do
   r    <- listToMaybe $ mapMaybe (`divide` lead) (monomials dividend)
   pure $ dividend - toPolynomial r * divisor
 
--- | Reduction. Fails on zero divisor. If impossible to reduce, returns dividend.
+-- | Reduction. Fails on zero divisor. If impossible to reduce, pures dividend.
 fullyReduceBy
   :: PolynomialConstraint (Polynomial f v o)
   => Polynomial f v o -- ^ Divisor
