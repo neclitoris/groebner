@@ -5,7 +5,6 @@ import Data.HashSet qualified as HS
 import Data.List
 import Data.Proxy
 import Data.Reflection (give)
-import Data.Typeable
 import Data.Void
 
 import Control.Applicative (empty)
@@ -22,6 +21,8 @@ import Poly.Fields
 import Poly.Polynomial
 import Poly.Monomial.Order
 import Poly.Variables
+
+import Ctx
 
 
 data Expr f
@@ -48,11 +49,11 @@ data Action where
   Quit :: Action
   ShowHelp :: Action
   SwitchOrder :: forall o. MonomialOrder o => o -> Action
-  SwitchField :: forall f . (Fractional f, Eq f, Read f, Show f, Typeable f)
-              => Proxy f -> Action
+  SwitchField :: forall f . (Fractional f, Eq f, Read f, Show f)
+              => FieldType f -> Action
 
 data Command
-  = forall f . (Typeable f, Fractional f, Show f, Eq f) => Run (Stmt f)
+  = forall f . (Fractional f, Show f, Eq f) => Run (FieldType f) (Stmt f)
   | Do Action
 
 
@@ -128,8 +129,8 @@ space = MPC.space MPC.space1 empty empty
 parens = between (symbol "(") (symbol ")")
 brackets = between (symbol "[") (symbol "]")
 
-command :: forall f . (Fractional f, Typeable f, Show f, Read f, Eq f) => Proxy f -> Parser Command
-command _ = MPC.try $ Run <$> stmt @f <|>
+command :: forall f . (Fractional f, Show f, Read f, Eq f) => FieldType f -> Parser Command
+command f = MPC.try $ Run f <$> stmt @f <|>
   MPC.string ":" *> MPC.choice
   [ Do Quit <$ shortSymbol "quit"
   , Do ShowHelp <$ shortSymbol "help"
@@ -142,12 +143,12 @@ command _ = MPC.try $ Run <$> stmt @f <|>
       ])
   , (\a -> Do a) <$> (shortSymbol "field" *>
     MPC.choice
-      [ MPC.string' "Double" *> pure (SwitchField (Proxy @Double))
-      , MPC.string' "Rational" *> pure (SwitchField (Proxy @Rational))
+      [ MPC.string' "Double" *> pure (SwitchField FDouble)
+      , MPC.string' "Rational" *> pure (SwitchField FRational)
       , do
           i <- MPC.string' "GF " *> int
           Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime $ fromIntegral i
-          give w $ pure (SwitchField (Proxy @(GF p)))
+          give w $ pure (SwitchField (FGF @p))
       ])
   , pure (Do ShowHelp)]
 
@@ -155,9 +156,9 @@ command _ = MPC.try $ Run <$> stmt @f <|>
 parseStmt :: Read f => String -> Either String (Stmt f)
 parseStmt = bimap MPC.errorBundlePretty id . MPC.runParser (space *> stmt) ""
 
-parseCommand :: forall f . (Fractional f, Typeable f, Show f, Read f, Eq f)
-             => Proxy f -> String -> Either String Command
-parseCommand p = bimap MPC.errorBundlePretty id . MPC.runParser (space *> command p) ""
+parseCommand :: forall f . (Fractional f, Show f, Read f, Eq f)
+             => FieldType f -> String -> Either String Command
+parseCommand f = bimap MPC.errorBundlePretty id . MPC.runParser (space *> command f) ""
 
 
 freeVars :: Expr f -> HS.HashSet String

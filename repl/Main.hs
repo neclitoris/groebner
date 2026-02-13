@@ -17,8 +17,8 @@ printLine :: (Member (Final (InputT IO)) r) => String -> Sem r ()
 printLine a = embedFinal $ outputStrLn @IO $ a
 
 runCommand :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Command -> Sem r ()
-runCommand (Run (stmt :: Stmt f)) = do
-  interpretStmt @f stmt >>= maybe (return ()) printLine
+runCommand (Run f stmt) = do
+  interpretStmt f stmt >>= maybe (return ()) printLine
   repl
 runCommand (Do Quit)     = return ()
 runCommand (Do ShowHelp) = do
@@ -33,8 +33,8 @@ runCommand (Do (SwitchField p)) = modify (switchField p) >> repl
 repl :: Members '[State Ctx, Error String, Fail, Final (InputT IO)] r => Sem r ()
 repl = do
   (Just line) <- embedFinal $ getInputLine @IO "> "
-  Ctx @f @o _ _ <- get
-  let res = parseCommand (Proxy @f) line
+  Ctx f _ _ <- get
+  let res = parseCommand f line
   case res of
     Right cmd -> runCommand cmd `catch` \s -> printLine s >> repl
     Left err  -> printLine err >> repl

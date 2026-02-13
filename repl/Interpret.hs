@@ -14,7 +14,7 @@ import Data.Vector qualified as V
 import Data.Vector.Sized qualified as VN
 import Data.Text qualified as T
 import Data.Text (Text)
-import Data.Typeable
+import Data.Type.Equality
 import Data.Singletons
 import Data.Singletons.Decide
 
@@ -47,7 +47,7 @@ applyList :: forall f o r . (Fractional f, Show f, MonomialOrder o)
           => (forall v . SingI v => [Polynomial f v o] -> r) -> [Value f o] -> r
 applyList f l = case un of SomeSing sun -> withSingI sun $ f (map (wkn sun) l)
   where
-    getSing = \(Value (p :: Polynomial f v o)) -> SomeSing (sing @v)
+    getSing (Value (p :: Polynomial f v o)) = SomeSing (sing @v)
     sings = map getSing l
     un = foldr (\(SomeSing v1) (SomeSing v2) -> SomeSing (v1 `sUnion` v2))
                (SomeSing (sing @'[]))
@@ -60,22 +60,22 @@ applyList f l = case un of SomeSing sun -> withSingI sun $ f (map (wkn sun) l)
       case sing @v of
         s -> fromJust $ ifSubset s sun $ withSingI sun $ weaken @v' p
 
-interpretExpr :: forall f o r . (Eq f, Typeable f, Fractional f, Show f
+interpretExpr :: forall f o r . (Eq f, Fractional f, Show f
                          , MonomialOrder o, Members '[State Ctx, Error String, Fail] r)
-              => Expr f -> Sem r (Value f o)
-interpretExpr (Const v) =
+              => FieldType f -> Expr f -> Sem r (Value f o)
+interpretExpr f (Const v) =
   return $ Value (toPolynomial v :: Polynomial f '[] o)
-interpretExpr (Var v)   = do
-  Ctx @f' @o' ord ctx <- get
-  Just Refl <- pure $ eqT @f @f'
+interpretExpr f (Var v)   = do
+  Ctx f' ord ctx <- get
+  Just Refl <- pure $ testEquality f f'
   case M.lookup v ctx of
     Nothing       -> throw $ "Undefined variable: " <> v
     Just (Value w) -> return $ withOrder order $ Value w
-interpretExpr (App f as) = do
-  Ctx @f' @o' ord ctx <- get
-  Just Refl <- pure $ eqT @f @f'
-  exps <- mapM (interpretExpr @f @o) as
-  val <- interpretExpr f
+interpretExpr f (App a as) = do
+  Ctx f' ord ctx <- get
+  Just Refl <- pure $ testEquality f f'
+  exps <- mapM (interpretExpr @f @o f) as
+  val <- interpretExpr f a
   case val of
     Value (p :: Polynomial f v o) -> do
       applyList
@@ -88,35 +88,35 @@ interpretExpr (App f as) = do
                   throw "Invalid number of arguments in variable substitution"
         )
         exps
-interpretExpr (Binop op e1 e2) = do
-  lhs <- interpretExpr e1
-  rhs <- interpretExpr e2
+interpretExpr f (Binop op e1 e2) = do
+  lhs <- interpretExpr f e1
+  rhs <- interpretExpr f e2
   applyList (\[x, y] -> return $ Value $ x `op` y) [lhs, rhs]
-interpretExpr (Neg e) = do
-  Value p <- interpretExpr e
+interpretExpr f (Neg e) = do
+  Value p <- interpretExpr f e
   return $ Value (-p)
-interpretExpr (Pow e n) = do
-  Value lhs <- interpretExpr e
+interpretExpr f (Pow e n) = do
+  Value lhs <- interpretExpr f e
   return $ Value (lhs^n)
 
-interpretStmt :: forall f r . (Eq f, Typeable f, Fractional f, Show f
+interpretStmt :: forall f r . (Eq f, Fractional f, Show f
                  , Members '[State Ctx, Error String, Fail] r)
-              => Stmt f -> Sem r (Maybe String)
-interpretStmt (Assign name args expr) = do
-  st@(Ctx @f' @o _ _) <- get
-  Just Refl <- pure $ eqT @f @f'
+              => FieldType f -> Stmt f -> Sem r (Maybe String)
+interpretStmt f (Assign name args expr) = do
+  st@(Ctx f' (o :: o) _) <- get
+  Just Refl <- pure $ testEquality f f'
   when (nub args /= args) $ throw "Variable names must be distinct"
   let upd = withVariables @f (map T.pack args)
-              (\vs -> M.fromList $ zip args (map Value vs))
-  modify (updateCtx upd)
-  res <- interpretExpr @f @o expr
+              (M.fromList . zip args . map Value)
+  modify (updateCtx f upd)
+  res <- interpretExpr @f @o f expr
   put st
-  modify (updateCtx (M.singleton name res))
+  modify (updateCtx f (M.singleton name res))
   return Nothing
-interpretStmt (AppBuiltin "S" exps) = do
-  st@(Ctx @f' @o _ _) <- get
-  Just Refl <- pure $ eqT @f @f'
-  res <- mapM (interpretExpr @f @o) exps
+interpretStmt f (AppBuiltin "S" exps) = do
+  st@(Ctx f' (o :: o) _) <- get
+  Just Refl <- pure $ testEquality f f'
+  res <- mapM (interpretExpr @f @o f) exps
   put st
   return $ applyList
              (\case
@@ -124,10 +124,10 @@ interpretStmt (AppBuiltin "S" exps) = do
                _ -> Just "Error: 'S' only accepts two arguments"
              )
              res
-interpretStmt (AppBuiltin "GCD" exps) = do
-  st@(Ctx @f' @o _ _) <- get
-  Just Refl <- pure $ eqT @f @f'
-  res <- mapM (interpretExpr @f @o) exps
+interpretStmt f (AppBuiltin "GCD" exps) = do
+  st@(Ctx f' (o :: o) _) <- get
+  Just Refl <- pure $ testEquality f f'
+  res <- mapM (interpretExpr @f @o f) exps
   put st
   return $ applyList
              (\case
@@ -135,29 +135,24 @@ interpretStmt (AppBuiltin "GCD" exps) = do
                _ -> Just "Error: 'GCD' only accepts two arguments"
              )
              res
-interpretStmt (AppBuiltin "GroebnerBasis" exps) = do
-  st@(Ctx @f' @o _ _) <- get
-  Just Refl <- pure $ eqT @f @f'
-  res <- mapM (interpretExpr @f @o) exps
+interpretStmt f (AppBuiltin "GroebnerBasis" exps) = do
+  st@(Ctx f' (o :: o) _) <- get
+  Just Refl <- pure $ testEquality f f'
+  res <- mapM (interpretExpr @f @o f) exps
   put st
-  return $ applyList
-             (\l -> Just $ show $ groebnerBasis l)
-             res
-interpretStmt (AppBuiltin "AutoReduce" exps) = do
-  st@(Ctx @f' @o _ _) <- get
-  Just Refl <- pure $ eqT @f @f'
-  res <- mapM (interpretExpr @f @o) exps
+  return $ applyList (Just . show . groebnerBasis) res
+interpretStmt f (AppBuiltin "AutoReduce" exps) = do
+  st@(Ctx f' (o :: o) _) <- get
+  Just Refl <- pure $ testEquality f f'
+  res <- mapM (interpretExpr @f @o f) exps
   put st
-  return $ applyList
-             (\l -> Just $ show $ autoReduce l)
-             res
-interpretStmt (Eval expr) = do
-  st@(Ctx @f' @o _ _) <- get
-  Just Refl <- pure $ eqT @f @f'
+  return $ applyList (Just . show . autoReduce) res
+interpretStmt f (Eval expr) = do
+  st@(Ctx f' (o :: o) _) <- get
+  Just Refl <- pure $ testEquality f f'
   let fv = S.toList $ freeVars expr
-  let upd = withVariables @f (map T.pack fv)
-              (\vs -> M.fromList $ zip fv (map Value vs))
-  modify (updateCtxNoShadow upd)
-  Value res <- interpretExpr @f @o expr
+  let upd = withVariables @f (map T.pack fv) (M.fromList . zip fv . map Value)
+  modify (updateCtxNoShadow f upd)
+  Value res <- interpretExpr @f @o f expr
   put st
   return $ Just $ show res
