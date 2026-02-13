@@ -59,13 +59,13 @@ data Command
 type Parser = MPC.Parsec Void String
 
 readMP :: Read a => Parser a
-readMP = do
+readMP = MPC.label "field coefficient" do
   input  <- MPC.getInput
   offset <- MPC.getOffset
-  choice $
+  (choice $
     (\(a, input') -> a <$ MPC.setInput input'
                        <* MPC.setOffset (offset + length input - length input'))
-    <$> reads input
+    <$> reads input) <* space
 
 stmt :: Read f => Parser (Stmt f)
 stmt = MPC.label "statement" $ assign <|> builtin <|> eval
@@ -77,7 +77,7 @@ stmt = MPC.label "statement" $ assign <|> builtin <|> eval
       MPC.eof
       return (Assign n a e)
     builtin = MPC.try $ do
-      (n, a) <- app (MPC.choice $ (map symbol) ["S", "GroebnerBasis", "AutoReduce"]) expr
+      (n, a) <- app (MPC.choice $ (map symbol) ["S", "GroebnerBasis", "AutoReduce", "GCD"]) expr
       MPC.eof
       return (AppBuiltin n a)
     eval = do
@@ -153,11 +153,11 @@ command _ = MPC.try $ Run <$> stmt @f <|>
 
 
 parseStmt :: Read f => String -> Either String (Stmt f)
-parseStmt = bimap MPC.errorBundlePretty id . MPC.runParser stmt ""
+parseStmt = bimap MPC.errorBundlePretty id . MPC.runParser (space *> stmt) ""
 
 parseCommand :: forall f . (Fractional f, Typeable f, Show f, Read f, Eq f)
              => Proxy f -> String -> Either String Command
-parseCommand p = bimap MPC.errorBundlePretty id . MPC.runParser (command p) ""
+parseCommand p = bimap MPC.errorBundlePretty id . MPC.runParser (space *> command p) ""
 
 
 freeVars :: Expr f -> HS.HashSet String

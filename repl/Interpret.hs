@@ -31,6 +31,8 @@ import Poly.Polynomial
 import Ctx
 import Syntax
 
+import Prelude hiding (gcd)
+
 -- data Expr
   -- = Const Double
   -- | Var String
@@ -73,8 +75,8 @@ interpretExpr (App f as) = do
   Ctx @f' @o' ord ctx <- get
   Just Refl <- pure $ eqT @f @f'
   exps <- mapM (interpretExpr @f @o) as
-  v <- interpretExpr f
-  case v of
+  val <- interpretExpr f
+  case val of
     Value (p :: Polynomial f v o) -> do
       applyList
         (\case
@@ -120,6 +122,17 @@ interpretStmt (AppBuiltin "S" exps) = do
              (\case
                [x, y] -> Just $ show $ sPolynomial x y
                _ -> Just "Error: 'S' only accepts two arguments"
+             )
+             res
+interpretStmt (AppBuiltin "GCD" exps) = do
+  st@(Ctx @f' @o _ _) <- get
+  Just Refl <- pure $ eqT @f @f'
+  res <- mapM (interpretExpr @f @o) exps
+  put st
+  return $ applyList
+             (\case
+               [x, y] -> Just $ show $ gcd x y
+               _ -> Just "Error: 'GCD' only accepts two arguments"
              )
              res
 interpretStmt (AppBuiltin "GroebnerBasis" exps) = do
