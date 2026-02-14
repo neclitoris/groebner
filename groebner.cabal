@@ -73,6 +73,7 @@ executable groebner-repl
   main-is: Main.hs
   other-modules:
       Ctx
+      FieldType
       Interpret
       Syntax
       Paths_groebner

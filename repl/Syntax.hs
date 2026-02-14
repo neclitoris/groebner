@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 module Syntax where
 
 import Data.Bifunctor
@@ -5,6 +6,7 @@ import Data.Functor
 import Data.HashSet qualified as HS
 import Data.List
 import Data.Proxy
+import Data.Ratio
 import Data.Reflection (give)
 import Data.Void
 
@@ -16,14 +18,13 @@ import Text.Megaparsec ((<?>))
 import Text.Megaparsec.Char qualified as MPC hiding (space)
 import Text.Megaparsec.Char.Lexer qualified as MPC
 import Text.Megaparsec.Error qualified as MPC
-import Text.Read (reads)
 
 import Poly.Fields
 import Poly.Polynomial
 import Poly.Monomial.Order
 import Poly.Variables
 
-import Ctx
+import FieldType
 
 
 data Expr f
@@ -50,7 +51,7 @@ data Action where
   Quit :: Action
   ShowHelp :: Action
   SwitchOrder :: forall o. MonomialOrder o => o -> Action
-  SwitchField :: forall f . (Fractional f, Eq f, Read f, Show f)
+  SwitchField :: forall f . (Fractional f, Eq f, Parseable f, Show f)
               => FieldType f -> Action
 
 data Command
@@ -60,15 +61,19 @@ data Command
 
 type Parser = MPC.Parsec Void String
 
-readMP :: Read a => Parser a
-readMP = MPC.label "field coefficient" do
-  input  <- MPC.getInput
-  offset <- MPC.getOffset
-  choice ((\(a, input') -> a <$ MPC.setInput input'
-                       <* MPC.setOffset (offset + length input - length input'))
-    <$> reads input) <* space
+class Parseable f where
+  parser :: Parser f
 
-stmt :: Read f => Parser (Stmt f)
+instance Parseable Double where
+  parser = number
+
+instance Parseable Rational where
+  parser = (%) <$> int <*> ((symbol "/" *> int) <|> pure 1)
+
+instance Num (GF n) => Parseable (GF n) where
+  parser = fromIntegral <$> int
+
+stmt :: Parseable f => Parser (Stmt f)
 stmt = MPC.label "statement" $ assign <|> builtin <|> eval
   where
     assign = MPC.try $ do
@@ -86,7 +91,7 @@ stmt = MPC.label "statement" $ assign <|> builtin <|> eval
       MPC.eof
       pure (Eval e)
 
-expr :: Read f => Parser (Expr f)
+expr :: Parseable f => Parser (Expr f)
 expr = MPC.label "expression" $ makeExprParser term
   [ [ Prefix (Neg <$ symbol "-")
     ]
@@ -103,15 +108,15 @@ app p a = MPC.try $ do
   args <- parens (a `sepBy1` symbol "," <?> "argument list") <?> "application"
   pure (n, args)
 
-atom :: Read f => Parser (Expr f)
+atom :: Parseable f => Parser (Expr f)
 atom = MPC.label "atom" $ MPC.choice
   [ parens expr
   , Var <$> name
   ]
 
-term :: Read f => Parser (Expr f)
+term :: Parseable f => Parser (Expr f)
 term = MPC.label "term" $ MPC.choice
-  [ Const <$> readMP
+  [ Const <$> parser
   , uncurry App <$> app atom expr
   , MPC.try $ Pow <$> atom <*> (symbol "^" *> int)
   , atom
@@ -120,6 +125,7 @@ term = MPC.label "term" $ MPC.choice
 symbol = MPC.symbol space
 shortSymbol s = MPC.choice $ map (MPC.try . symbol) $ reverse (tail $ inits s)
 name = (:) <$> MPC.letterChar <*> many MPC.alphaNumChar <* space <?> "name"
+int :: Integral i => Parser i
 int = MPC.decimal <* space <?> "int"
 number = MPC.choice
   [ MPC.try MPC.float
@@ -129,7 +135,7 @@ space = MPC.space MPC.space1 empty empty
 parens = between (symbol "(") (symbol ")")
 brackets = between (symbol "[") (symbol "]")
 
-command :: forall f . (Fractional f, Show f, Read f, Eq f) => FieldType f -> Parser Command
+command :: forall f . (Fractional f, Show f, Parseable f, Eq f) => FieldType f -> Parser Command
 command f = MPC.try $ Run f <$> stmt @f <|>
   MPC.string ":" *> MPC.choice
   [ Do Quit <$ shortSymbol "quit"
@@ -148,15 +154,15 @@ command f = MPC.try $ Run f <$> stmt @f <|>
       , do
           i <- MPC.string' "GF " *> int
           Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime $ fromIntegral i
-          give w $ pure (SwitchField (FGF @p))
+          give w $ pure $ SwitchField (FGF @p)
       ])
   , pure (Do ShowHelp)]
 
 
-parseStmt :: Read f => String -> Either String (Stmt f)
+parseStmt :: Parseable f => String -> Either String (Stmt f)
 parseStmt = first MPC.errorBundlePretty . MPC.runParser (space *> stmt) ""
 
-parseCommand :: forall f . (Fractional f, Show f, Read f, Eq f)
+parseCommand :: forall f . (Fractional f, Show f, Parseable f, Eq f)
              => FieldType f -> String -> Either String Command
 parseCommand f = first MPC.errorBundlePretty . MPC.runParser (space *> command f) ""
 

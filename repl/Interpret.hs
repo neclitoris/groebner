@@ -28,6 +28,7 @@ import Poly.Point
 import Poly.Polynomial
 
 import Ctx
+import FieldType
 import Syntax
 
 import Prelude hiding (gcd)
@@ -90,7 +91,8 @@ interpretExpr f (App a as) = do
 interpretExpr f (Binop op e1 e2) = do
   lhs <- interpretExpr f e1
   rhs <- interpretExpr f e2
-  applyList (\[x, y] -> pure $ Value $ x `op` y) [lhs, rhs]
+  SomePolys [x, y] <- pure $ weakenVals [lhs, rhs]
+  pure $ Value $ x `op` y
 interpretExpr f (Neg e) = do
   Value p <- interpretExpr f e
   pure $ Value (-p)

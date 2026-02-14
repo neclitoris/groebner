@@ -10,19 +10,8 @@ import Poly.Fields
 import Poly.Polynomial
 import Poly.Monomial.Order
 
-
-data FieldType n where
-  FDouble :: FieldType Double
-  FRational :: FieldType Rational
-  FGF :: forall p . KnownNat p => FieldType (GF p)
-
-instance TestEquality FieldType where
-  testEquality FDouble FDouble = Just Refl
-  testEquality FRational FRational = Just Refl
-  testEquality (FGF @p) (FGF @p') = apply Refl <$> testEquality (SNat @p) (SNat @p')
-  testEquality _ _ = Nothing
-
-data SomeField = forall n . SomeField (FieldType n)
+import FieldType
+import Syntax
 
 data Value f o where
   Value :: PolynomialConstraint (Polynomial f v o)
@@ -34,7 +23,7 @@ instance MonomialOrder o => Ordered (Value f o) where
   withOrder o (Value p) = Value (withOrder o p)
 
 data Ctx where
-  Ctx :: forall f o . (Fractional f, Eq f, Read f, Show f, MonomialOrder o)
+  Ctx :: forall f o . (Fractional f, Eq f, Parseable f, Show f, MonomialOrder o)
       => FieldType f -> o -> HashMap String (Value f o) -> Ctx
 
 defaultCtx = Ctx FDouble Lex empty
@@ -56,6 +45,6 @@ updateCtxNoShadow f h (Ctx f' o v) =
 switchOrder :: MonomialOrder o => o -> Ctx -> Ctx
 switchOrder o (Ctx f _ v) = Ctx f o (fmap (withOrder o) v)
 
-switchField :: forall f . (Fractional f, Eq f, Read f, Show f)
+switchField :: forall f . (Fractional f, Eq f, Parseable f, Show f)
             => FieldType f -> Ctx -> Ctx
 switchField f (Ctx _ o _) = Ctx f o empty
