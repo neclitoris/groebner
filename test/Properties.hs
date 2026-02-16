@@ -3,6 +3,7 @@ module Properties
   ( properties
   ) where
 import Control.Monad
+import Control.Monad.IO.Class
 import Data.List
 import Data.Maybe
 import Data.Reflection
@@ -49,7 +50,8 @@ buchbergerCriterion = withTests 1000 $ property do
   Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime 5
 
   give w $ withVariables names \(vs :: [Polynomial (GF p) v Lex]) -> do
-    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
+    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5)
+                      (genSizedPoly @v 4 $ genSizedMono 3 $ genGF @p)
 
     let basis   = groebnerBasis $ map (withOrder DegRevLex) polys
         sPolys  = [ s | (f:gs) <- tails basis, g <- gs
@@ -68,7 +70,8 @@ containsOriginal = property do
   Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime 5
 
   give w $ withVariables names \(vs :: [Polynomial (GF p) v Lex]) -> do
-    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5) (genPoly genGF vs)
+    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 5)
+                      (genPoly @v $ genMono $ genGF @p)
 
     let basis   = groebnerBasis polys
         reduced = map (leadReduceBySet basis) polys
@@ -85,7 +88,8 @@ orderInvariance = property do
   Just (SomePrimeW w@(PrimeW @p)) <- pure $ isPrime 5
 
   give w $ withVariables names \(vs :: [Polynomial (GF p) v Lex]) -> do
-    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 4) (genPoly genGF vs)
+    polys <- forAll $ filter (/=0) <$> Gen.list (Range.exponential 2 4)
+                      (genSizedPoly @v 4 $ genSizedMono 3 $ genGF @p)
 
     let calcGrevlex :: (PolynomialConstraint (Polynomial f v o))
                 => [Polynomial f v o] -> [Polynomial f v DegRevLex]
@@ -108,7 +112,7 @@ gcdRefl = property do
   let names = map (\n -> "x" <> Text.pack (show n)) [1..numNames]
 
   withVariables names \(vs :: [Polynomial Q v Lex]) -> do
-    poly <- normalize <$> forAll (genPoly genQ vs)
+    poly <- normalize <$> forAll (genPoly @v $ genMono genQ)
     let gcdRes = Algo.gcd poly poly
 
     annotateShow poly
@@ -117,22 +121,22 @@ gcdRefl = property do
     assert $ gcdRes == poly
 
 gcdisgcd :: Property
-gcdisgcd = withTests 1000 $ property do
+gcdisgcd = withTests 10000 $ property do
   numNames <- forAll $ Gen.int (Range.linear 1 5)
   let names = map (\n -> "x" <> Text.pack (show n)) [1..numNames]
 
   withVariables names \(vs :: [Polynomial Q v Lex]) -> do
-    commonDiv <- forAll $ Gen.filter (/=0) (genPoly genQ vs)
+    let poly = genSizedPoly @v 2 $ genSizedMono 3 genQ
+    commonDiv <- forAll $ Gen.filter (/=0) poly
     annotateShow commonDiv
-    lhs <- fmap (commonDiv*) $ forAll $ Gen.filter (/=0) (genPoly genQ vs)
-    rhs <- fmap (commonDiv*) $ forAll $ Gen.filter (/=0) (genPoly genQ vs)
-
-    annotateShow lhs
-    annotateShow rhs
+    lhs <- fmap (commonDiv*) $ forAll $ Gen.filter (/=0) poly
+    rhs <- fmap (commonDiv*) $ forAll $ Gen.filter (/=0) poly
 
     let gcdRes = Algo.gcd lhs rhs
 
-    annotateShow gcdRes
+    annotate $ "lhs: " <> show lhs
+    annotate $ "rhs: " <> show rhs
+    annotate $ "gcd: " <> show gcdRes
 
     assert $ leadReduceBySet [commonDiv] gcdRes == 0
     assert $ leadReduceBySet [gcdRes] lhs == 0
@@ -150,22 +154,33 @@ genGF = fromInteger <$> Gen.integral (Range.linear 1 p)
     p = naturalToInteger $ FromSing (sing :: Sing p)
 
 genPoly :: forall v f m . (PolynomialConstraint (Polynomial f v Lex), MonadGen m)
-        => m f
-        -> [Polynomial f v Lex]
+        => m (Polynomial f v Lex)
         -> m (Polynomial f v Lex)
-genPoly mCoef vars = do
-  monos <- Gen.list (Range.exponential 0 4) (genMono mCoef vars)
+genPoly = genSizedPoly $ numVars v
+
+genSizedPoly :: forall v f m . (PolynomialConstraint (Polynomial f v Lex), MonadGen m)
+             => Int
+             -> m (Polynomial f v Lex)
+             -> m (Polynomial f v Lex)
+genSizedPoly sz monos = do
+  monos <- Gen.list (Range.exponential 0 sz) monos
   pure $ sum monos
 
 genMono :: forall v f m . (PolynomialConstraint (Polynomial f v Lex), MonadGen m)
         => m f
-        -> [Polynomial f v Lex]
         -> m (Polynomial f v Lex)
-genMono mCoef vars = do
+genMono = genSizedMono $ numVars v
+
+genSizedMono :: forall v f m . (PolynomialConstraint (Polynomial f v Lex), MonadGen m)
+             => Int
+             -> m f
+             -> m (Polynomial f v Lex)
+genSizedMono sz mCoef = do
+  let vars = Poly.Polynomial.variables v
   coef   <- mCoef
-  powers <- Gen.filterT ((< numVars v) . sum)
+  powers <- Gen.filterT ((<= sz) . sum)
               $ replicateM (numVars v)
-              $ Gen.int (Range.exponential 0 (numVars v - 1))
+              $ Gen.int (Range.exponential 0 sz)
   case coef of
     0 -> pure 0
     _ -> pure $ toPolynomial coef * product (zipWith (^) vars powers)
