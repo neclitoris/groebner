@@ -13,12 +13,17 @@ module Poly.Fields
   , SomePrimeW(..)
   , pattern PrimeW
   , isPrime
+  , primes
   ) where
 
+import Control.Monad.Fix
 import Control.Monad
+import Data.Bifunctor
 import Data.Bool.Singletons
 import Data.Constraint
 import Data.Kind
+import Data.List.Ordered
+import Data.Ord.Singletons (sCompare, SOrdering(..))
 import Data.Ratio
 import Data.Reflection
 import Data.Singletons
@@ -49,7 +54,7 @@ instance Show (GF p) where
   show (GF n) = show n
 
 instance Num (GF p) => Read (GF p) where
-  readsPrec d r = map (\(v, s) -> (fromInteger v, s)) $ readsPrec d r
+  readsPrec d r = map (first fromInteger) $ readsPrec d r
 
 instance (1 <= p, SingI p) => Num (GF p) where
   GF n + GF m = GF ((n + m) `mod` FromSing (sing :: Sing p))
@@ -67,6 +72,13 @@ data PrimeW n = PrimeW_
 
 data SomePrimeW = forall n . (1 <= n, KnownNat n) => SomePrimeW (PrimeW n)
 
+instance Eq SomePrimeW where
+  (==) = ((== EQ) . ) . compare
+
+instance Ord SomePrimeW where
+  compare (SomePrimeW (PrimeW_ @p1)) (SomePrimeW (PrimeW_ @p2)) =
+    FromSing $ sCompare (sing :: Sing p1) (sing :: Sing p2)
+
 pattern PrimeW :: PrimeW n
 pattern PrimeW <- PrimeW_
 
@@ -82,13 +94,23 @@ instance (Num (GF p), SingI p, Given (PrimeW p)) => Fractional (GF p) where
 -- | Primality test of type level naturals is beyond me.
 -- Use this to ensure primality.
 isPrime :: Natural -> Maybe SomePrimeW
-isPrime n = do
+isPrime n =
+  case dropWhile ((<n) . fst) $ zip primes primeWitnesses of
+    (r, w):_ | r == n -> Just w
+    _                 -> Nothing
+
+
+primes :: [Natural]
+primes = 2 : 3 : 5 : minus [6 * n + r | n <- [1..], r <- [1, 5]] composites
+  where
+    composites = mergeAll [[p^2, p^2 + 2*p..] | p <- primes]
+
+primeWitnesses :: [SomePrimeW]
+primeWitnesses = do
+  n <- primes
   SomeSing (s :: Sing p) <- pure $ toSing n
   STrue <- pure $ (sing :: Sing 1) %<=? s
-  withKnownNat s $
-    if (and [ n `mod` d /= 0 | d <- takeWhile ((<=n) . (^2)) [2..]])
-      then pure $ SomePrimeW $ PrimeW_ @p
-      else Nothing
+  withKnownNat s $ pure $ SomePrimeW $ PrimeW_ @p
 
 data GCDEx =
   GCDEx { gcdLhsCoef :: Integer

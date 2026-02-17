@@ -58,6 +58,7 @@ library
   build-depends:
       base >=4.7 && <5
     , constraints >=0.14 && <1
+    , data-ordlist >=0.4 && <5
     , finite-typelits >=0.1 && <1
     , prettyprinter >=1.7 && <2
     , reflection >=2.1 && <3
@@ -101,6 +102,7 @@ executable groebner-repl
   build-depends:
       base >=4.7 && <5
     , constraints >=0.14 && <1
+    , data-ordlist >=0.4 && <5
     , finite-typelits >=0.1 && <1
     , groebner
     , haskeline >=0.8 && <1
@@ -152,6 +154,7 @@ test-suite groebner-test
       HUnit >=1.6 && <2
     , base >=4.7 && <5
     , constraints >=0.14 && <1
+    , data-ordlist >=0.4 && <5
     , finite-typelits >=0.1 && <1
     , groebner
     , hedgehog ==1.*
@@ -199,6 +202,7 @@ benchmark groebner-bench
       base >=4.7 && <5
     , constraints >=0.14 && <1
     , criterion >=1.5 && <2
+    , data-ordlist >=0.4 && <5
     , finite-typelits >=0.1 && <1
     , groebner
     , prettyprinter >=1.7 && <2
